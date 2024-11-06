@@ -1,6 +1,5 @@
 from lmfdb.tests import LmfdbTest
 
-
 class AbGpsTest(LmfdbTest):
     # All tests should pass
 
@@ -64,18 +63,17 @@ class AbGpsTest(LmfdbTest):
             "4432676798593", # factor of aut_order
         ])
         self.check_args("/Groups/Abstract/ab/3000", [ # large cyclic group
-            r"C_{2}^{3} \times C_{100}", # automorphism group structure
+            r"C_2^3\times C_{100}", # automorphism group structure
         ])
 
     def test_underlying_data(self):
-        self.check_args("/Groups/Abstract/data/256.33517", [
+        self.check_args("/Groups/Abstract/data/2520.a", [
             "gps_groups", "number_normal_subgroups",
-            "gps_groups_cc", "representative",
+            "gps_conj_classes", "representative",
             "gps_qchar", "cdim",
             "gps_char", "indicator",
             "gps_subgroups", "mobius_sub"])
         self.check_args("/Groups/Abstract/sdata/16.8.2.b1.a1", [
             "gps_subgroups", "16.8.2.b1.a1",
             "gps_groups", "[28776, 16577, 5167]", # perm_gens
-            "[16582, 136, 5167, 40176]", # perm_gens
             "[[1, 1, 1]]"]) # faithful_reps

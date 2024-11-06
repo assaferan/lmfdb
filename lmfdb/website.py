@@ -1,4 +1,3 @@
-#-*- coding: utf-8 -*-
 # LMFDB - L-function and Modular Forms Database web-site - www.lmfdb.org
 # Copyright (C) 2010-2012 by the LMFDB authors
 #
@@ -98,6 +97,8 @@ from .groups import glnC
 assert glnC
 from . import maass_forms
 assert maass_forms
+from . import modular_curves
+assert modular_curves
 from .homepage import random
 assert random
 

@@ -1,4 +1,3 @@
-# -*- coding: utf-8 -*-
 from lmfdb.utils.utilities import key_for_numerically_sort
 from flask import url_for
 #######################################################################
@@ -50,15 +49,6 @@ def name_and_object_from_url(url, check_existence=False):
         elif len(url_split) == 5: # curve
             #name = 'Curve ' + label_curve
             name = 'Elliptic curve ' + label_curve
-
-    elif url_split[0] == "Character":
-        # Character/Dirichlet/19/8
-        assert url_split[1] == "Dirichlet"
-        name = r"Dirichlet character \(\chi_{%s} (%s, \cdot) \)" % tuple(url_split[-2:])
-        label = ".".join(url_split[-2:])
-        obj_exists = True
-        if check_existence:
-            obj_exists = db.char_dir_values.exists({"label": label})
 
     elif url_split[0] == "Genus2Curve":
         obj_exists = True
@@ -134,10 +124,14 @@ def name_and_object_from_url(url, check_existence=False):
         else:
             name = 'Sato Tate group $%s$' % name
             obj_exists = True
+    elif url_split[:2] == ["Character", "Dirichlet"]:
+        modulus = int(url_split[2])
+        conrey = int(url_split[3])
+        name = r"Character $\chi_{%d}(%d, \cdot)$" % (modulus, conrey)
+        obj_exists = True
     else:
         # FIXME
-        #print("unknown url", url)
-        pass
+        assert False, url
 
     return name, obj_exists
 

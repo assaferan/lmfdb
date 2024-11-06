@@ -1,4 +1,3 @@
-# -*- coding: utf-8 -*-
 
 from flask import url_for
 
@@ -8,7 +7,10 @@ from lmfdb.utils import WebObj, web_latex, display_knowl, web_latex_factored_int
 from lmfdb import db
 from lmfdb.genus2_curves.main import url_for_curve_label as url_for_g2c_label
 from lmfdb.classical_modular_forms.main import url_for_label as url_for_mf_label
+from lmfdb.artin_representations.main import url_for_label as url_for_artin_label
 from lmfdb.number_fields.number_field import field_pretty
+from lmfdb.number_fields.web_number_field import WebNumberField
+from lmfdb.groups.abstract.main import abstract_group_display_knowl
 
 def _codomain(algebraic_group, dimension, base_ring_order, base_ring_is_field):
     if base_ring_is_field:
@@ -19,12 +21,26 @@ def _codomain(algebraic_group, dimension, base_ring_order, base_ring_is_field):
 def codomain(algebraic_group, dimension, base_ring_order, base_ring_is_field):
     return "$" + _codomain(algebraic_group, dimension, base_ring_order, base_ring_is_field) + "$"
 
-def image_pretty(image_label, is_surjective, algebraic_group, dimension, base_ring_order, base_ring_is_field, codomain=True):
+def image_pretty(image_label, is_surjective, algebraic_group, dimension, base_ring_order, base_ring_is_field, codomain=False):
     s = _codomain(algebraic_group, dimension, base_ring_order, base_ring_is_field)
     if is_surjective:
         return "$" + s + "$"
-    t = t = display_knowl('gl2.subgroup_data', title=image_label, kwargs={'label':image_label}) if dimension == 2 else image_label
+    t = display_knowl('gl2.subgroup_data', title=image_label, kwargs={'label':image_label}) if dimension == 2 else image_label
     return t + r" $< " + s + "$" if codomain else t
+
+def image_pretty_with_abstract(image_label, is_surjective, algebraic_group, dimension, base_ring_order, base_ring_is_field, image_abstract_group, codomain=False):
+    s = _codomain(algebraic_group, dimension, base_ring_order, base_ring_is_field)
+    if is_surjective:
+        return "$" + s + "$"
+    if dimension == 1:
+        return image_label
+    if algebraic_group == 'GSp' and dimension == 4 and base_ring_order == 2:
+        t = display_knowl('gsp4.subgroup_data', title=image_label, kwargs={'label':image_label})
+    else:
+        t = display_knowl('gl2.subgroup_data', title=image_label, kwargs={'label':image_label}) if dimension == 2 else image_label
+    if image_abstract_group:
+        t += r" $\ \cong$ " + abstract_group_display_knowl(image_abstract_group)
+    return t
 
 def rep_pretty(algebraic_group, dimension, base_ring_order, base_ring_is_field):
     return r"$\rho\colon\Gal_\Q\to" + _codomain(algebraic_group, dimension, base_ring_order, base_ring_is_field) + "$"
@@ -50,7 +66,7 @@ def showexp(c, wrap=True):
         return f"^{{{c}}}"
 
 def modlgal_link(label):
-    return '<a href="%s">%s</a>'%(url_for(".by_label",label=label),label)
+    return '<a href="%s">%s</a>' % (url_for(".by_label",label=label),label)
 
 def bool_string(b):
     return "yes" if b else "no"
@@ -62,9 +78,14 @@ class WebModLGalRep(WebObj):
     def properties(self):
         props = [
             ("Label", self.label),
-            ("Dimension", str(self.dimension)),
-            ("Codomain", str(self.codomain)),
+            ("Characteristic", str(self.base_ring_characteristic)),
+            ("Dimension", str(self.dimension))
+        ]
+        if self.dimension > 1:
+            props += [("Determinant", str(self.determinant_label))]
+        props += [
             ("Conductor", str(self.conductor)),
+            ("Codomain", str(self.codomain)),
             ("Top slope", self.top_slope_rational),
             ("Image index", str(self.image_index)),
             ("Image order", str(self.image_order)),
@@ -75,20 +96,36 @@ class WebModLGalRep(WebObj):
     def friends(self):
         from lmfdb.modl_galois_representations.main import url_for_modlgal_label
         friends = []
+        has_dirichlet = False
         if not hasattr(self, "related_objects"):
             self.related_objects = []
+        self.related_objects.sort()
         for r in self.related_objects:
             if r[0] == "Dirichlet":
                 c = r[1].split(".")
                 friends.append(("Dirichlet character " + r[1], url_for("characters.render_Dirichletwebpage",modulus=c[0],number=c[1])))
+                has_dirichlet = True
             elif r[0] == "ECQ":
                 friends.append(("Elliptic curve " + r[1], url_for("ec.by_ec_label", label=r[1])))
             elif r[0] == "MF":
                 friends.append(("Modular form " + r[1], url_for_mf_label(r[1])))
             elif r[0] == "G2C":
                 friends.append(("Genus 2 curve " + r[1], url_for_g2c_label(r[1])))
+            elif r[0] == "Artin":
+                friends.append(("Artin representation " + r[1], url_for_artin_label(r[1])))
+        kerfield = WebNumberField.from_coeffs(self.kernel_polynomial)
+        if kerfield and kerfield._data:
+            friends.append(("Number field "+kerfield.field_pretty(), url_for("number_fields.by_label", label=kerfield.label)))
+        projkerfield = WebNumberField.from_coeffs(self.projective_kernel_polynomial)
+        if projkerfield and projkerfield._data and projkerfield.label != kerfield.label:
+            friends.append(("Number field "+projkerfield.field_pretty(), url_for("number_fields.by_label", label=projkerfield.label)))
+
         if self.dimension > 1 and hasattr(self, "determinant_label"):
             friends.append(("Determinant " + self.determinant_label, url_for_modlgal_label(label=self.determinant_label)))
+        if self.dimension == 1 and not has_dirichlet:
+            dirlabel = self.label.split('.')[-1]
+            c = dirlabel.split('-')
+            friends.append(("Dirichlet character " + c[0]+'.'+c[1], url_for("character.render_Dirichletwebpage", modulus=c[0], number=c[1])))
         return friends
 
     @lazy_attribute
@@ -117,8 +154,12 @@ class WebModLGalRep(WebObj):
         return codomain(self.algebraic_group, self.dimension, self.base_ring_order, self.base_ring_is_field)
 
     @lazy_attribute
+    def image_pretty_with_abstract(self):
+        return image_pretty_with_abstract(self.image_label, self.image_index == 1, self.algebraic_group, self.dimension, self.base_ring_order, self.base_ring_is_field, self.image_abstract_group, codomain=False)
+
+    @lazy_attribute
     def image_pretty(self):
-        return image_pretty(self.image_label, self.is_surjective, self.algebraic_group, self.dimension, self.base_ring_order, self.base_ring_is_field, codomain=False)
+        return image_pretty(self.image_label, self.image_index == 1, self.algebraic_group, self.dimension, self.base_ring_order, self.base_ring_is_field, codomain=False)
 
     @lazy_attribute
     def rep_pretty(self):
@@ -133,10 +174,28 @@ class WebModLGalRep(WebObj):
         return formatfield(self.projective_kernel_polynomial)
 
     @lazy_attribute
+    def image_abstract(self):
+        if self.image_abstract_group:
+            return abstract_group_display_knowl(self.image_abstract_group)
+        return ''
+
+    @lazy_attribute
+    def projective_image_abstract(self):
+        if self.image_abstract_group:
+            return abstract_group_display_knowl(self.projective_image_abstract_group)
+        return ''
+
+    @lazy_attribute
     def frobenius_generators(self):
         if not self.generating_primes:
             return None
-        return ",".join([r"\mathrm{Frob}_{%s}"%(p) for p in self.generating_primes])
+        return ",".join([r"\mathrm{Frob}_{%s}" % (p) for p in self.generating_primes])
+
+    @lazy_attribute
+    def frobenius_primes(self):
+        if not self.generating_primes:
+            return None
+        return ",".join([str(p) for p in self.generating_primes])
 
     @lazy_attribute
     def frobenius_matrices_pretty(self):
@@ -150,10 +209,10 @@ class WebModLGalRep(WebObj):
             for i in range(len(ps)):
                 m = Matrix(F,n,frobs[i])
                 M = R(frobs[i])
-                if self.generating_primes and ps[i] in self.generating_primes:
-                    L.append([r"\mathbf{%s}"%(ps[i]),m.trace(),M.order(),web_latex(factor(m.charpoly())),web_latex(m)])
-                else:
-                    L.append([ps[i],m.trace(),M.order(),web_latex(factor(m.charpoly())),web_latex(m)])
+                p = r"\mathbf{%s}" % (ps[i]) if self.generating_primes and ps[i] in self.generating_primes else ps[i]
+                charpoly = m.charpoly()
+                pol = web_latex(charpoly) if charpoly.is_irreducible() else web_latex(factor(charpoly))
+                L.append([p, m.trace(), m.det(), M.order(), pol, web_latex(m)])
         except ValueError:
             print(f"Error occurred while attempting to parse frobenius_matrices for {self.label}")
             print(self.frobenius_matrices)
@@ -168,24 +227,20 @@ class WebModLGalRep(WebObj):
         n = sum([len(a)-1 for a in A[0]])
         data = { "A": r" $\times$ ".join([formatfield(f) for f in A[0]]),
                  "B": r" $\times$ ".join([formatfield(f) for f in A[1]]),
-                 "Phi": r"\frac{1}{%s} "%(str(A[2][0])) + web_latex(Matrix(QQ,n,A[2][1]),enclose=False)
+                 "Phi": r"\frac{1}{%s} " % (str(A[2][0])) + web_latex(Matrix(QQ,n,A[2][1]),enclose=False)
                }
         return data
+
+    @lazy_attribute
+    def determinant(self):
+        return modlgal_link(self.determinant_label)
 
     @lazy_attribute
     def downloads(self):
         self.downloads = [
             (
-                "Code to Magma",
-                url_for(".modlgal_magma_download", label=self.label),
-            ),
-            (
-                "Code to SageMath",
-                url_for(".modlgal_sage_download", label=self.label),
-            ),
-            (
                 "All data to text",
-                url_for(".modlgal_text_download", label=self.label),
+                url_for(".download_modlgal_text", label=self.label),
             ),
             (
                 'Underlying data',
@@ -193,5 +248,4 @@ class WebModLGalRep(WebObj):
             )
 
         ]
-        #self.downloads.append(("Underlying data", url_for(".belyi_data", label=self.label)))
         return self.downloads
