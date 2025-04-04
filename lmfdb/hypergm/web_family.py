@@ -1,21 +1,22 @@
-
-
 import re
 from flask import url_for
-from collections import defaultdict
-from sage.all import ZZ, QQ, LCM
-from sage.all import (cached_method, ceil, gcd,
+from collections import defaultdict, Counter
+
+from sage.all import (ZZ, QQ, cached_method, ceil, gcd, lcm,
                       latex, lazy_attribute,
-                      matrix, valuation)
+                      matrix, valuation, I)
+from sage.rings.complex_mpfr import ComplexField
 from sage.geometry.newton_polygon import NewtonPolygon
 
 from lmfdb import db
 from lmfdb.utils import (
     encode_plot, list_to_factored_poly_otherorder,
-    make_bigint, web_latex, integer_divisors, integer_prime_divisors)
+    make_bigint, web_latex, integer_divisors, integer_prime_divisors, raw_typeset)
 from lmfdb.groups.abstract.main import abstract_group_display_knowl
 from lmfdb.galois_groups.transitive_group import transitive_group_display_knowl_C1_as_trivial
-from .plot import circle_image, piecewise_constant_image, piecewise_linear_image
+# from .plot import circle_image, piecewise_constant_image, piecewise_linear_image
+from sage.plot.all import line, text, point, circle, polygon, Graphics
+from sage.functions.log import exp
 
 HMF_LABEL_RE = re.compile(r'^A(\d+\.)*\d+_B(\d+\.)*\d+$')
 
@@ -26,16 +27,19 @@ def HMF_valid_label(label):
 
 GAP_ID_RE = re.compile(r'^\[\d+,\d+\]$')
 
+
 # Convert cyclotomic indices to rational numbers
-
-
 def cyc_to_QZ(A):
-    alpha = []
-    for Ai in A:
-        alpha.extend([QQ(k)/Ai for k in range(1, Ai+1) if gcd(k, Ai) == 1])
-    alpha.sort()
-    return alpha
+    return sorted(QQ(k) / Ai for Ai in A
+                  for k in range(1, Ai + 1) if gcd(k, Ai) == 1)
 
+
+# Given A, B, return URL for family
+def AB_to_url(A,B):
+    from lmfdb.hypergm.main import normalize_family, ab_label, url_for_label
+    if len(A) != 0 and len(B) != 0:
+        return url_for_label(normalize_family(ab_label(A,B)))
+    return ""
 
 class WebHyperGeometricFamily():
     def __init__(self, data):
@@ -77,7 +81,7 @@ class WebHyperGeometricFamily():
     @lazy_attribute
     def gammas(self):
         def subdict(d, v):
-            if d[v]>1:
+            if d[v] > 1:
                 d[v] -= 1
             else:
                 del d[v]
@@ -99,20 +103,24 @@ class WebHyperGeometricFamily():
                 if d in ab[wh]:
                     subdict(ab[wh], d)
                 else:
-                    ab[1-wh][d] += 1
-        gamma[1] = [-1*z for z in gamma[1]]
-        gamma = gamma[1] + gamma[0]
-        gamma.sort()
+                    ab[1 - wh][d] += 1
+        gamma[1] = [-1 * z for z in gamma[1]]
+        gamma = sorted(gamma[1] + gamma[0])
         return gamma
 
     @lazy_attribute
     def wild_primes(self):
-        return integer_prime_divisors(LCM(LCM(self.A), LCM(self.B)))
+        return integer_prime_divisors(lcm(lcm(self.A), lcm(self.B)))
+
+    @lazy_attribute
+    def wild_primes_string(self):
+        ps = self.wild_primes
+        return raw_typeset(', '.join(str(p) for p in ps), ', '.join(web_latex(p) for p in ps))
 
     @lazy_attribute
     def motivic_det_char(self):
-        exp = -QQ(self.weight * self.degree)/2
-        first = r'\Q({})'.format(exp)
+        exp = -QQ(self.weight * self.degree) / 2
+        tate_twist = r'\Q({})'.format(exp)
 
         if self.det[0] == 1:
             foo = ""
@@ -122,10 +130,9 @@ class WebHyperGeometricFamily():
             foo = str(self.det[0])
         foo += self.det[1]
         if foo == "":
-            foo = "1"
-        second = r'\Q(\sqrt{{ {} }})'.format(foo)
-
-        return r'{} \otimes {}'.format(first, second)
+            return tate_twist
+        quad_char = r'\chi_{%s}' % foo
+        return r'{} \otimes {}'.format(quad_char, tate_twist)
 
     @lazy_attribute
     def bezout_det(self):
@@ -133,15 +140,15 @@ class WebHyperGeometricFamily():
 
     @lazy_attribute
     def hinf_latex(self):
-        return(latex(self.hinf))
+        return latex(self.hinf)
 
     @lazy_attribute
     def h0_latex(self):
-        return(latex(self.h0))
+        return latex(self.h0)
 
     @lazy_attribute
     def h1_latex(self):
-        return(latex(self.h1))
+        return latex(self.h1)
 
     @lazy_attribute
     def bezout_latex(self):
@@ -153,37 +160,58 @@ class WebHyperGeometricFamily():
         if not l2:
             return 'C_1'
         fa = [ZZ(a).factor() for a in l2]
-        eds = []
-        for b in fa:
-            for pp in b:
-                eds.append([pp[0], pp[1]])
-        eds.sort()
-        l2 = ['C_{{{}}}'.format(a[0]**a[1]) for a in eds]
+        eds = sorted((pp[0], pp[1])
+                     for b in fa
+                     for pp in b)
+        l2 = ('C_{{{}}}'.format(a[0]**a[1]) for a in eds)
         return (r' \times ').join(l2)
 
     @lazy_attribute
     def type(self):
-        if (self.weight % 2) and (self.degree % 2) == 0:
+        if (self.weight % 2) and not (self.degree % 2):
             return 'Symplectic'
         else:
             return 'Orthogonal'
 
     @lazy_attribute
     def ppart(self):
-        return [[2, self.A2, self.B2, self.C2],
-                [3, self.A3, self.B3, self.C3],
-                [5, self.A5, self.B5, self.C5],
-                [7, self.A7, self.B7, self.C7]]
+        p_data = [[p, getattr(self, f"A{p}"), getattr(self, f"B{p}"), getattr(self, f"C{p}")] for p in [2,3,5,7]]
+        # make URLs
+        for row in p_data:
+            A = row[1]
+            B = row[2]
+            row.append(AB_to_url(A,B))
+        return p_data
+
+    @cached_method
+    def circle_image(self):
+        alpha = self.alpha
+        beta = self.beta
+        alpha_counter = dict(Counter(alpha))
+        beta_counter = dict(Counter(beta))
+        G = Graphics()
+        G += circle((0, 0), 1, color='gray', thickness=2, zorder=3)
+        G += circle((0, 0), 1.4, color='black', alpha=0, zorder=2)  # Adds invisible framing circle, which protects the aspect ratio from being skewed.
+        C = ComplexField()
+        for a in alpha_counter.keys():
+            P = exp(C(2*3.14159*I*a))
+            P1 = exp(C(2*3.14159*(a + 0.007)*I))
+            P2 = exp(C(2*3.14159*(a - 0.007)*I))
+            P3 = (1+alpha_counter[a]/30)*exp(C(2*3.14159*I*a))
+            G += polygon([P1,P2,P3], color="red", thickness=1)
+            G += line([P,1.3*P], color="red", zorder=1)
+        for b in beta_counter.keys():
+            P = exp(C(2*3.14159*I*b))
+            P1 = exp(C(2*3.14159*(b + 0.007)*I))
+            P2 = exp(C(2*3.14159*(b - 0.007)*I))
+            P3 = (1-beta_counter[b]/30)*exp(C(2*3.14159*I*b))
+            G += polygon([P1,P2,P3], color="blue", thickness=1)
+            G += line([P,0.7*P], color="blue", zorder=1)
+        return G
 
     @cached_method
     def plot(self, typ="circle"):
-        assert typ in ['circle', 'linear', 'constant']
-        if typ == 'circle':
-            G = circle_image(self.A, self.B)
-        elif typ == 'linear':
-            G = piecewise_linear_image(self.A, self.B)
-        else:
-            G = piecewise_constant_image(self.A, self.B)
+        G = self.circle_image()
 
         return encode_plot(
             G.plot(),
@@ -196,6 +224,67 @@ class WebHyperGeometricFamily():
     @lazy_attribute
     def plot_link(self):
         return '<a href="{0}"><img src="{0}" width="150" height="150"/></a>'.format(self.plot())
+
+    @lazy_attribute
+    def zigzag(self):
+        # alpha is color red
+        # beta is color blue
+        alpha = self.alpha
+        beta = self.beta
+        alpha_dicts = [dict(value=entry,color="red") for entry in alpha]
+        beta_dicts = [dict(value=entry,color="blue") for entry in beta]
+        zigzag_dicts = sorted(alpha_dicts + beta_dicts, key=lambda d: d["value"])
+        y = 0
+        y_values = [y] # zigzag graph will start at (0,0)
+        colors = [entry["color"] for entry in zigzag_dicts]
+        for entry in zigzag_dicts:
+            if entry["color"] == "red":
+                y += 1
+                y_values.append(y)
+            elif entry["color"] == "blue":
+                y += -1
+                y_values.append(y)
+        return [y_values, colors, zigzag_dicts]
+
+    @cached_method
+    def zigzag_plot(self):
+        zz = self.zigzag
+        y_values = zz[0]
+        colors = zz[1]
+        x_labels = zz[2]
+        y_max = max(y_values)
+        y_min = min(y_values)
+        x_values = list(range(len(y_values)))
+        x_max = len(y_values)
+        pts = [(i, y_values[i]) for i in x_values]
+        L = Graphics()
+        # grid
+        for x in x_values:
+            L += line([(x, y_min), (x, y_max)], color="grey", zorder=1, thickness=0.4)
+        for y in y_values:
+            L += line([(0, y), (x_max-1, y)], color="grey", zorder=1, thickness=0.4)
+        # zigzag
+        L += line(pts, thickness=1, color="black", zorder=2)
+        # points
+        x_values.pop()
+        for x in x_values:
+            L += point((x, y_values[x]), marker='o', size=36, color=colors[x], zorder=3)
+
+        j = 0
+        for label in x_labels:
+            if label["color"] == "red":
+                L += text("$"+latex(QQ(label["value"]))+"$", (j,y_max + 0.4), color=label["color"])
+                j += 1
+            else:
+                L += text("$"+latex(QQ(label["value"]))+"$", (j,y_min - 0.4), color=label["color"])
+                j += 1
+        L.axes(False)
+        L.set_aspect_ratio(1)
+        return encode_plot(L, pad=0, pad_inches=0, bbox_inches="tight")
+
+    @lazy_attribute
+    def zigzag_plot_link(self):
+        return '<a href="{0}"><img src="{0}" width="150" height="150"/></a>'.format(self.zigzag_plot())
 
     @lazy_attribute
     def properties(self):
@@ -224,7 +313,7 @@ class WebHyperGeometricFamily():
             else:
                 # Fix multiple backslashes
                 m1[2] = re.sub(r'\\+', r'\\', m1[2])
-                m1[2] = '$%s$'% m1[2]
+                m1[2] = '$%s$' % m1[2]
             return m1
 
         def getgroup(m1, ell):
@@ -248,10 +337,10 @@ class WebHyperGeometricFamily():
             j = valuation(a, p)
             if j == 0:
                 return str(a)
-            a = a/p**j
+            a = a / p**j
             if a == 1:
                 return latex(ZZ(p**j).factor())
-            return str(a)+r'\cdot'+latex(ZZ(p**j).factor())
+            return str(a) + r'\cdot' + latex(ZZ(p**j).factor())
 
         # # this will have a new data format in the future
         # converted = [[ell,
@@ -261,18 +350,24 @@ class WebHyperGeometricFamily():
         # return [[m[0], m[1], m[2][0],
         #         splitint(m[1][0]/m[2][1], m[0]), m[3]] for m in converted]
 
-        mono = [m for m in self.mono if m[1] != 0]
+        mono = (m for m in self.mono if m[1] != 0)
         mono = [[m[0], dogapthing(m[1]),
-          getgroup(m[1], m[0]),
-          latex(ZZ(m[1][0]).factor())] for m in mono]
-        mono = [[m[0], m[1], m[2][0], splitint(ZZ(m[1][0])/m[2][1], m[0]), m[3]] for m in mono]
+                 getgroup(m[1], m[0]),
+                 latex(ZZ(m[1][0]).factor())] for m in mono]
+
+        mono = [[m0, m1, m2[0], splitint(ZZ(m1[0]) / m2[1], m0), m3] for m0, m1, m2, m3 in mono]
+        # make URLs
+        for row in mono:
+            A = row[1][3][0]
+            B = row[1][3][1]
+            row.append(AB_to_url(A,B))
+
         return mono
 
     @lazy_attribute
     def friends(self):
         return [('Motives in the family',
-                 url_for('hypergm.index') +
-                 "?A={}&B={}".format(str(self.A), str(self.B)))]
+                 url_for('hypergm.index') + f"?A={self.A}&B={self.B}")]
 
     @lazy_attribute
     def downloads(self):
@@ -316,13 +411,13 @@ class WebHyperGeometricFamily():
     def hodge_polygon(self):
         expand_hodge = []
         for i, h in enumerate(self.hodge):
-            expand_hodge += [i]*h
+            expand_hodge += [i] * h
         return NewtonPolygon(expand_hodge).vertices()
 
     @lazy_attribute
     def ordinary(self):
         if self.weight > 0:
-            middle = ceil(ZZ(len(self.hodge_polygon))/2)
+            middle = ceil(ZZ(len(self.hodge_polygon)) / 2)
 
             def ordinary(f, p):
                 return all(valuation(f[i], p) == v

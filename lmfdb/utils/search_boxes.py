@@ -1,9 +1,10 @@
 from .web_display import display_knowl
 from sage.structure.unique_representation import UniqueRepresentation
-
+from .utilities import plural_form
 
 class TdElt():
     _wrap_type = 'td'
+
     def _add_class(self, D, clsname):
         if 'class' in D:
             D['class'] = D['class'] + ' ' + clsname
@@ -237,7 +238,7 @@ class TextBox(SearchBox):
                 keys.append('style="width: %spx"' % self.short_width)
             if self.name in info:
                 keys.append('value="%s"' % info[self.name])
-        return '<input type="text" ' + " ".join(keys) + "/>"
+        return '<input ' + " ".join(keys) + "/>"
 
 class SelectBox(SearchBox):
     """
@@ -275,6 +276,7 @@ class SelectBox(SearchBox):
         short_label=None,
         advanced=False,
         example_col=False,
+        example_value=False,
         id=None,
         qfield=None,
         extra=[],
@@ -304,6 +306,7 @@ class SelectBox(SearchBox):
         if min_width is None:
             min_width = self._default_min_width
         self.min_width = min_width
+        self.example_value = example_value
 
     def _input(self, info):
         keys = self.extra + ['name="%s"' % self.name]
@@ -311,6 +314,8 @@ class SelectBox(SearchBox):
             keys.append('id="%s"' % self.id)
         if self.advanced:
             keys.append('class="advanced"')
+        if self.example_value and info is None:
+            info = {self.name:self.example}
         if info is None:
             if self.width is not None:
                 keys.append('style="width: %spx"' % self.width)
@@ -376,6 +381,9 @@ class SneakyBox(SearchBox):
     """
 
 class SneakyTextBox(TextBox, SneakyBox):
+    pass
+
+class SneakySelectBox(SelectBox, SneakyBox):
     pass
 
 class SkipBox(TextBox):
@@ -474,6 +482,8 @@ class CountBox(TextBox):
             example_span="")
 
 class ColumnController(SelectBox):
+    wrap_mixins = {'width': '170px'}
+
     def __init__(self):
         super().__init__(
             name="column_control",
@@ -512,7 +522,7 @@ class ColumnController(SelectBox):
             '''oninput="control_columns(this);"''',
             '''id="column-selector"''',
         ]
-        style="position: absolute; z-index: 9999;"
+        style = "position: absolute; z-index: 9999;"
         if self.short_width is not None:
             style += f'width: {self.short_width}px;'
         keys.append(f'style="{style}"')
@@ -523,6 +533,7 @@ class ColumnController(SelectBox):
                 # A ColGroup with columns that should be shown/hidden individually
                 use_rank = 1
                 break
+        allshown = True
         for col in C.columns_shown(info, use_rank):
             if col.short_title is None: # probably a spacer column:
                 continue
@@ -531,7 +542,9 @@ class ColumnController(SelectBox):
                 disp = "✓ " + title # The space is a unicode space the size of an emdash
             else:
                 disp = "  " + title # The spaces are unicode, the sizes of an endash and a thinspace
+                allshown = False
             options.append((col.name, "", disp))
+        options.append(("toggleall", "", "&emsp;&emsp;&emsp;&emsp;&emsp;&emsp;&emsp;" + ("hide all" if allshown else "show all")))
         # options.append(("done", "", "&emsp;&emsp;&emsp;&emsp;&emsp;&emsp;&emsp;done"))
         options = [f'<option value="{name}"{selected}>{disp}</option>' for name,selected,disp in options]
         return "        <select %s>\n%s\n        </select>" % (
@@ -539,8 +552,10 @@ class ColumnController(SelectBox):
             "".join("\n" + " " * 10 + opt for opt in options),
         )
 
+
 class SortController(SelectBox):
     wrap_mixins = {'width': '170px'}
+
     def __init__(self, options, knowl):
         extra = [
             '''onmousedown="this.size=this.length; this.selectedIndex = -1;"''',
@@ -577,8 +592,10 @@ class SortController(SelectBox):
     #    select_box1=sort_box,
     #    select_box2=sort_dir)
 
+
 class SearchButton(SearchBox):
     _default_width = 170
+
     def __init__(self, value, description, **kwds):
         kwds['label'] = kwds.get('label', '')
         SearchBox.__init__(self, **kwds)
@@ -595,11 +612,16 @@ class SearchButton(SearchBox):
             onclick = ""
         else:
             onclick = " onclick='resetStart()'"
-        btext = "<button type='submit' name='search_type' value='{val}' style='width: {width}px;'{onclick}>{desc}</button>"
+        if self.description in ["Search again", "Generate statistics"]:
+            cls = " class='search_stale'"
+        else:
+            cls = " class='search_fresh'"
+        btext = "<button type='submit' name='search_type' value='{val}'{cls} style='width: {width}px;'{onclick}>{desc}</button>"
         return btext.format(
             width=self.width,
             val=self.value,
             desc=self.description,
+            cls=cls,
             onclick=onclick)
 
 class SearchButtonWithSelect(SearchButton):
@@ -641,6 +663,7 @@ class SearchArray(UniqueRepresentation):
     null_column_explanations = {} # Can override the null warnings for a column by including False as a value, or customize the error message by giving a formatting string (see search_wrapper.py)
     noun = "result"
     plural_noun = "results"
+
     def sort_order(self, info):
         # Override this method to add a dropdown for sort order
         if self.sorts is not None:
@@ -660,9 +683,9 @@ class SearchArray(UniqueRepresentation):
     def search_types(self, info):
         # Override this method to change the displayed search buttons
         if info is None:
-            return [("List", "List of %s" % self.plural_noun), ("Random", "Random %s" % self.noun)]
+            return [("", f"List of {plural_form(self.noun)}"), ("Random", f"Random {self.noun}")]
         else:
-            return [("List", "Search again"), ("Random", "Random %s" % self.noun)]
+            return [("", "Search again"), ("Random", "Random %s" % self.noun)]
 
     def hidden(self, info):
         # Override this method to change the hidden inputs
@@ -720,7 +743,11 @@ class SearchArray(UniqueRepresentation):
 
     def _st(self, info):
         if info is not None:
-            return info.get("search_type", info.get("hst", "List"))
+            search_type = info.get("search_type", info.get("hst", ""))
+            if search_type == "List":
+                # Backward compatibility
+                search_type = ""
+            return search_type
 
     def dynstats_array(self, info):
         if self._st(info) == "DynStats":
@@ -735,7 +762,7 @@ class SearchArray(UniqueRepresentation):
                     label="",
                     width=150,
                     options=info["stats"]._dynamic_cols,
-                    extra=['onchange="set_buckets(this, \'buckets%s\')"'%i])
+                    extra=['onchange="set_buckets(this, \'buckets%s\')"' % i])
                 buckets = TextBox(
                     name="buckets%s" % i,
                     id="buckets%s" % i,
@@ -787,6 +814,26 @@ class SearchArray(UniqueRepresentation):
                     return True
         return False
 
+    def _buttons(self, info=None):
+        buttons = []
+        sort = self.sort_order(info)
+        if sort:
+            #spacer = RowSpacer(6)
+            cur_sort = info.get('sort_order', '')
+            cur_dir = info.get('sort_dir', '')
+            options = []
+            for name, disp in sort:
+                if name == cur_sort:
+                    if cur_dir == 'op':
+                        options.append((name, '▼ ' + disp)) # the space is U+2006, a 1/6 em space
+                    else:
+                        options.append((name, '▲ ' + disp)) # the space is U+2006, a 1/6 em space
+                else:
+                    options.append((name, '  ' + disp)) # the spaces are U+2006 and U+2003, totaling 7/6 em
+            buttons.append(SortController(options, self.sort_knowl))
+        buttons.append(ColumnController())
+        return buttons
+
     def buttons(self, info=None):
         st = self._st(info)
         buttons = []
@@ -802,22 +849,7 @@ class SearchArray(UniqueRepresentation):
                 else:
                     buttons.append(SearchButton(*but))
             if st is not None:
-                sort = self.sort_order(info)
-                if sort:
-                    spacer = RowSpacer(6)
-                    cur_sort = info.get('sort_order', '')
-                    cur_dir = info.get('sort_dir', '')
-                    options = []
-                    for name, disp in sort:
-                        if name == cur_sort:
-                            if cur_dir == 'op':
-                                options.append((name, '▼ ' + disp)) # the space is U+2006, a 1/6 em space
-                            else:
-                                options.append((name, '▲ ' + disp)) # the space is U+2006, a 1/6 em space
-                        else:
-                            options.append((name, '  ' + disp)) # the spaces are U+2006 and U+2003, totaling 7/6 em
-                    buttons.append(SortController(options, self.sort_knowl))
-                buttons.append(ColumnController())
+                buttons.extend(self._buttons(info))
         return self._print_table([spacer,buttons], info, layout_type="vertical")
 
     def html(self, info=None):
@@ -833,3 +865,17 @@ class SearchArray(UniqueRepresentation):
         return """<table><tr><td>%s</td><td><input type='text' name='jump' placeholder='%s' style='width:%spx;' value='%s'></td><td>
 <button type='submit'>Find</button></td><td></tr><tr><td></td><td colspan="2"><span class='formexample'>%s</span></td></tr></table>
 """ % (display_knowl(jump_knowl, jump_prompt),jump_example, jump_width, info.get("jump", ""), jump_egspan)
+
+class EmbeddedSearchArray(SearchArray):
+    """
+    For holding the controls for selecting the sort order and columns to display
+    on an embedded page (modular curve families are an example).
+    """
+    def __init__(self):
+        self.refine_array = []
+
+    def buttons(self, info=None):
+        # We want to put a refresh button after the sort order and column selectors
+        spacer = RowSpacer(8)
+        buttons = self._buttons(info) + [SearchButton("", "Refresh")]
+        return self._print_table([spacer, buttons], info, layout_type="vertical")

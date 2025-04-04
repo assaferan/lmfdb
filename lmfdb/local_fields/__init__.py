@@ -1,4 +1,3 @@
-# -*- coding: utf-8 -*-
 from lmfdb.app import app
 from lmfdb.logger import make_logger
 from flask import Blueprint, request, redirect
@@ -17,7 +16,7 @@ assert main
 from urllib.parse import urlparse, urlunparse
 
 
-@local_fields_page.before_request
+@app.before_request
 def redirect_local():
     urlparts = urlparse(request.url)
     if 'LocalNumberField' in urlparts.path:

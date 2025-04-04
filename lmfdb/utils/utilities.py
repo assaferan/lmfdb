@@ -1,4 +1,3 @@
-# -*- encoding: utf-8 -*-
 import cmath
 import math
 import datetime
@@ -61,7 +60,7 @@ def integer_prime_divisors(n):
 
 def integer_squarefree_part(n):
     """ returns the squarefree part of the integer n (uses factor rather than calling pari like sage 9.3+ does) """
-    return sign(n)*prod([p**(e%2) for p, e in ZZ(n).factor()])
+    return sign(n)*prod([p**(e % 2) for p, e in ZZ(n).factor()])
 
 
 def integer_is_squarefree(n):
@@ -119,8 +118,7 @@ def list_factored_to_factored_poly_otherorder(sfacts_fc_list, galois=False, vari
             this_poly = ZZT(list(reversed(g)))
             this_degree = this_poly.degree()
             this_number_field = NumberField(this_poly, "a")
-            this_gal = this_number_field.galois_group(type='pari')
-            this_t_number = this_gal.group().__pari__()[2].sage()
+            this_t_number = this_number_field.galois_group().group().transitive_number()
             gal_list.append([this_degree, this_t_number])
 
         # casting from ZZT -> ZZpT
@@ -253,6 +251,24 @@ def coeff_to_poly(c, var=None):
         var = 'x'
     return PolynomialRing(QQ, var)(c)
 
+
+def coeff_to_poly_multi(c, var=None):
+    """
+    Convert a list or string representation of a polynomial to a sage polynomial.
+    Handles multivariate polynomials.
+    """
+    if isinstance(c, str):
+        # accept latex
+        c = c.replace("{", "").replace("}", "")
+        while re.search("[A-Za-z]{2}", c):
+            c = re.sub("([A-Za-z])([A-Za-z])", r"\1*\2", c)
+        while re.search("[0-9]+[A-Za-z]", c):
+            c = re.sub("([0-9]+)([A-Za-z])", r"\1*\2", c)
+        # autodetect variable name
+        if var is None:
+            varposs = set(re.findall(r"[A-Za-z_]+", c))
+    return PolynomialRing(QQ, list(varposs))(c)
+
 def coeff_to_power_series(c, var='q', prec=None):
     """
     Convert a list or dictionary giving coefficients to a sage power series.
@@ -273,7 +289,7 @@ def display_multiset(mset, formatter=str, *args):
     >>> display_multiset([["a", 5], [1, 3], ["cat", 2]])
     'a x5, 1 x3, cat x2'
     """
-    return ', '.join([formatter(pair[0], *args)+(' x%d'% pair[1] if pair[1]>1 else '') for pair in mset])
+    return ', '.join([formatter(pair[0], *args)+(' x%d' % pair[1] if pair[1] > 1 else '') for pair in mset])
 
 
 def pair2complex(pair):
@@ -356,8 +372,9 @@ def str_to_CBF(s):
         if a:
             res += CBF(a)
         if b:
-            res  +=  sign * CBF(b)* CBF.gens()[0]
+            res += sign * CBF(b) * CBF.gens()[0]
         return res
+
 
 # Conversion from numbers to letters and back
 def letters2num(s):
@@ -370,6 +387,7 @@ def letters2num(s):
         ssum = ssum*26+letters[j]
     return ssum
 
+
 def num2letters(n):
     r"""
     Convert a number into a string of letters
@@ -377,10 +395,10 @@ def num2letters(n):
     if n <= 26:
         return chr(96+n)
     else:
-        return num2letters(int((n-1)/26))+chr(97+(n-1)%26)
+        return num2letters(int((n-1)/26))+chr(97+(n-1) % 26)
 
 
-def to_dict(args, exclude = [], **kwds):
+def to_dict(args, exclude=[], **kwds):
     r"""
     Input a dictionary `args` whose values may be lists.
     Output a dictionary whose values are not lists, by choosing the last
@@ -412,7 +430,7 @@ def is_exact(x):
     return isinstance(x, int) or (isinstance(x, Element) and x.parent().is_exact())
 
 
-def display_float(x, digits, method = "truncate",
+def display_float(x, digits, method="truncate",
                              extra_truncation_digits=3,
                              try_halfinteger=True,
                              no_sci=None,
@@ -446,10 +464,10 @@ def display_float(x, digits, method = "truncate",
     if no_sci is None:
         no_sci = 'e' not in "%.{}g".format(digits) % float(x)
     try:
-        s = RealField(max(53,4*digits),  rnd=rnd)(x).str(digits=digits, no_sci=no_sci)
+        s = RealField(max(53, 4 * digits), rnd=rnd)(x).str(digits=digits, no_sci=no_sci)
     except TypeError:
         # older versions of Sage don't support the digits keyword
-        s = RealField(max(53,4*digits),  rnd=rnd)(x).str(no_sci=no_sci)
+        s = RealField(max(53, 4 * digits), rnd=rnd)(x).str(no_sci=no_sci)
         point = s.find('.')
         if point != -1:
             if point < digits:
@@ -460,8 +478,9 @@ def display_float(x, digits, method = "truncate",
         s = s.replace("e", r"\times 10^{") + "}"
     return s
 
-def display_complex(x, y, digits, method = "truncate",
-                                  parenthesis = False,
+
+def display_complex(x, y, digits, method="truncate",
+                                  parenthesis=False,
                                   extra_truncation_digits=3,
                                   try_halfinteger=True):
     """
@@ -509,8 +528,8 @@ def display_complex(x, y, digits, method = "truncate",
             sign = ""
         else:
             sign = " + "
-    y = display_float(y, digits, method = method,
-                                 extra_truncation_digits = extra_truncation_digits,
+    y = display_float(y, digits, method=method,
+                                 extra_truncation_digits=extra_truncation_digits,
                                  try_halfinteger=try_halfinteger)
     if y == "1":
         y = ""
@@ -548,13 +567,7 @@ def splitcoeff(coeff):
     >>> splitcoeff("1 1 \n -1 2")
     [[1.0, 1.0], [-1.0, 2.0]]
     """
-    local = coeff.split("\n")
-    answer = []
-    for s in local:
-        if s:
-            answer.append(pair2complex(s))
-    return answer
-
+    return [pair2complex(s) for s in coeff.split("\n") if s]
 
 
 ################################################################################
@@ -583,7 +596,7 @@ def latex_comma(x):
 def format_percentage(num, denom):
     if denom == 0:
         return 'NaN'
-    return "%10.2f"%((100.0*num)/denom)
+    return "%10.2f" % ((100.0*num)/denom)
 
 
 def signtocolour(sign):
@@ -608,24 +621,8 @@ def rgbtohex(rgb):
     b = int(b)
     return "#{:02x}{:02x}{:02x}".format(r,g,b)
 
-def pol_to_html(p):
-    r"""
-    Convert polynomial p with variable x to html.
-
-    Example:
-    >>> pol_to_html("x^2 + 2*x + 1")
-    '<i>x</i><sup>2</sup> + 2<i>x</i> + 1'
-    """
-    s = str(p)
-    s = re.sub(r"\^(\d*)", r"<sup>\1</sup>", s)
-    s = re.sub(r"\_(\d*)", r"<sub>\1</sub>", s)
-    s = re.sub(r"\*", r"", s)
-    s = re.sub(r"x", r"<i>x</i>", s)
-    return s
-
 def factor_base_factor(n, fb):
     return [[p, valuation(n,p)] for p in fb]
-
 
 
 def code_snippet_knowl(D, full=True):
@@ -643,7 +640,7 @@ def code_snippet_knowl(D, full=True):
     lines = D.get('lines')
     code = '\n'.join(code).replace('<','&lt;').replace('>','&gt;').replace('"', '&quot;')
     if is_debug_mode():
-        branch = "master"
+        branch = "main"
     elif is_beta():
         branch = "dev"
     else:
@@ -661,11 +658,9 @@ def code_snippet_knowl(D, full=True):
         url += "#L%s" % lines[0]
     else:
         label = filename
-    inner = u"<div>\n<pre></pre>\n</div>\n<div align='right'><a href='%s' target='_blank'>%s</a></div>"
+    inner = "<div>\n<pre></pre>\n</div>\n<div align='right'><a href='%s' target='_blank'>%s</a></div>"
     inner = inner % (url, link_text)
-    return u'<a title="[code]" knowl="dynamic_show" pretext="%s" kwargs="%s">%s</a>' % (code, inner, label)
-
-
+    return '<a title="[code]" knowl="dynamic_show" pretext="%s" kwargs="%s">%s</a>' % (code, inner, label)
 
 
 ################################################################################
@@ -679,12 +674,14 @@ class ValueSaver():
     def __init__(self, source):
         self.source = source
         self.store = []
+
     def fill(self, stop):
         """
         Consumes values from the source until there are at least ``stop`` entries in the store.
         """
         if stop > len(self.store):
             self.store.extend(islice(self.source, stop - len(self.store)))
+
     def __getitem__(self, i):
         if isinstance(i, slice):
             if (i.start is not None and i.start < 0) or i.stop is None or i.stop < 0 or (i.step is not None and i.step < 0):
@@ -694,8 +691,10 @@ class ValueSaver():
         else:
             self.fill(i+1)
             return self.store[i]
+
     def __len__(self):
         raise TypeError("Unknown length")
+
 
 class Pagination():
     """
@@ -737,7 +736,6 @@ class Pagination():
     has_previous = property(lambda x: x.page > 1)
     pages = property(lambda x: max(0, x.count - 1) // x.per_page + 1)
     start = property(lambda x: (x.page - 1) * x.per_page)
-    end = property(lambda x: min(x.start + x.per_page - 1, x.count - 1))
 
     @property
     def end(self):
@@ -898,8 +896,10 @@ def ajax_more(callback, *arg_list, **kwds):
     else:
         return res
 
+
 def image_src(G):
     return ajax_url(image_callback, G, _ajax_sticky=True)
+
 
 def image_callback(G):
     P = G.plot()
@@ -911,7 +911,8 @@ def image_callback(G):
     response.headers['Content-type'] = 'image/png'
     return response
 
-def encode_plot(P, pad=None, pad_inches=0.1, bbox_inches=None, remove_axes = False, transparent=False, axes_pad=None):
+
+def encode_plot(P, pad=None, pad_inches=0.1, remove_axes=False, axes_pad=None, figsize=None, **kwds):
     """
     Convert a plot object to base64-encoded png format.
 
@@ -927,14 +928,14 @@ def encode_plot(P, pad=None, pad_inches=0.1, bbox_inches=None, remove_axes = Fal
     from urllib.parse import quote
 
     virtual_file = IO()
-    fig = P.matplotlib(axes_pad=axes_pad)
+    fig = P.matplotlib(axes_pad=axes_pad, figsize=figsize)
     fig.set_canvas(FigureCanvasAgg(fig))
     if remove_axes:
         for a in fig.axes:
             a.axis('off')
     if pad is not None:
         fig.tight_layout(pad=pad)
-    fig.savefig(virtual_file, format='png', pad_inches=pad_inches, bbox_inches=bbox_inches, transparent=transparent)
+    fig.savefig(virtual_file, format='png', pad_inches=pad_inches, **kwds)
     virtual_file.seek(0)
     buf = virtual_file.getbuffer()
     return "data:image/png;base64," + quote(b64encode(buf))
@@ -946,3 +947,43 @@ def datetime_to_timestamp_in_ms(dt):
 
 def timestamp_in_ms_to_datetime(ts):
     return datetime.datetime.utcfromtimestamp(float(int(ts)/1000000.0))
+
+class WebObj:
+    def __init__(self, label, data=None):
+        self.label = label
+        if data is None:
+            data = self._get_dbdata()
+        self._data = data
+        if isinstance(data, dict):
+            for key, val in self._data.items():
+                setattr(self, key, val)
+
+    @classmethod
+    def from_data(cls, data):
+        return cls(data["label"], data)
+
+    def _get_dbdata(self):
+        # self.table must be defined in subclasses
+        return self.table.lookup(self.label)
+
+    def is_null(self):
+        return self._data is None
+
+def plural_form(noun):
+    if noun and noun[-1] != "s":
+        noun += "s"
+    return noun
+
+def pluralize(n, noun, omit_n=False, denom=None, offset=0):
+    if denom is not None:
+        if offset != 0:
+            return f"{n}/{denom} {plural_form(noun)} (starting at row {offset+1})"
+        return f"{n}/{denom} {plural_form(noun)}"
+    if n == 1:
+        if omit_n:
+            return noun
+        return f"1 {noun}"
+    elif omit_n:
+        return plural_form(noun)
+    else:
+        return f"{n} {plural_form(noun)}"

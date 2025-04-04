@@ -1,4 +1,3 @@
-# -*- coding: utf-8 -*-
 
 from lmfdb.tests import LmfdbTest
 from lmfdb import db
@@ -72,7 +71,7 @@ class SatoTateGroupTest(LmfdbTest):
         import sys
         L = self.tc.get('/SatoTateGroup/?weight=1&degree=2')
         assert '3 matches' in L.get_data(as_text=True)
-        data = list(db.gps_st.search({'weight':int(1),'degree':int(2)}, projection='label'))
+        data = list(db.gps_st.search({'weight': 1, 'degree': 2}, projection='label'))
         assert len(data) == 3
         print("")
         for label in data:
@@ -82,7 +81,7 @@ class SatoTateGroupTest(LmfdbTest):
             assert label in L.get_data(as_text=True) and 'Moment sequences' in L.get_data(as_text=True)
         L = self.tc.get('/SatoTateGroup/?weight=1&degree=4')
         assert 'of 52' in L.get_data(as_text=True)
-        data = list(db.gps_st.search({'weight':int(1),'degree':int(4)}, projection='label'))
+        data = list(db.gps_st.search({'weight': 1, 'degree': 4}, projection='label'))
         assert len(data) == 52
 
         for label in data:
@@ -111,8 +110,8 @@ class SatoTateGroupTest(LmfdbTest):
 
     def test_underlying_data(self):
         data = self.tc.get('/SatoTateGroup/data/1.6.L.8.3j').get_data(as_text=True)
-        assert ('gps_st0' in data and 'character_diagonal' in data and
-                'symplectic_form' in data and
-                'gps_groups' in data and 'number_normal_subgroups' in data)
+        assert ('gps_st0' in data and 'character_diagonal' in data
+                and 'symplectic_form' in data
+                and 'gps_groups' in data and 'number_normal_subgroups' in data)
         page = self.tc.get('/SatoTateGroup/0.1.2').get_data(as_text=True)
         assert 'Underlying data' not in page

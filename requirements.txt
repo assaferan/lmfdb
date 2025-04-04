@@ -4,13 +4,13 @@ flask
 flask-cache
 flask-login
 flask-markdown
-markupsafe
+markupsafe==2.0.1
 itsdangerous
 psycopg2-binary
+git+https://github.com/roed314/psycodict.git
 pyflakes
 pytest
 pytest-cov
 pytest-xdist
 pyyaml
 timeout_decorator
-unittest2

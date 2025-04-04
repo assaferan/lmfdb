@@ -1,4 +1,3 @@
-# -*- coding: utf-8 -*-
 from lmfdb.tests import LmfdbTest
 
 
@@ -90,20 +89,20 @@ class EllCurveTest(LmfdbTest):
         L = self.tc.get('/EllipticCurve/Q/?bad_quantifier=include&bad_primes=3%2C5')
         assert '15.a1' in L.get_data(as_text=True)
         assert '30.a1' in L.get_data(as_text=True)
-        assert not('11.a1' in L.get_data(as_text=True))
+        assert '11.a1' not in L.get_data(as_text=True)
         L = self.tc.get('/EllipticCurve/Q/?bad_quantifier=exclude&bad_primes=3%2C5')
-        assert not('15.a1' in L.get_data(as_text=True))
-        assert not('30.a1' in L.get_data(as_text=True))
+        assert '15.a1' not in L.get_data(as_text=True)
+        assert '30.a1' not in L.get_data(as_text=True)
         assert '11.a1' in L.get_data(as_text=True)
         L = self.tc.get('/EllipticCurve/Q/?bad_quantifier=exactly&bad_primes=3%2C5')
         assert '15.a1' in L.get_data(as_text=True)
-        assert not('30.a1' in L.get_data(as_text=True))
-        assert not('11.a1' in L.get_data(as_text=True))
+        assert '30.a1' not in L.get_data(as_text=True)
+        assert '11.a1' not in L.get_data(as_text=True)
 
     def test_num_int_pts_search(self):
         L = self.tc.get('/EllipticCurve/Q/?num_int_pts=1')
         assert '14.a2' in L.get_data(as_text=True)
-        assert not('11.a1' in L.get_data(as_text=True))
+        assert '11.a1' not in L.get_data(as_text=True)
 
     def test_cm_disc_search(self):
         self.check_args('EllipticCurve/Q/?cm=-4', '32.a3')
@@ -113,6 +112,16 @@ class EllCurveTest(LmfdbTest):
         # Test that we correctly fixed issue 4678
         self.check_args('EllipticCurve/Q/?jinv=-4096%2F11&optimal=on', '156 matches')
 
+    def test_galois_image_search(self):
+        # This searches for an adelic image label '550.1200.37.?' which exists in ec_curvedata
+        L = self.tc.get('/EllipticCurve/Q/?galois_image=550.1200.37.%3F')
+        assert '121.d1' in L.get_data(as_text=True)
+
+        # This searches for both adelic image label '550.1200.37.?' and ell-adic image
+        # label 5.60.0.1, which exists in ec_curvedata
+        L = self.tc.get('/EllipticCurve/Q/?cm=noCM&galois_image=550.1200.37.%3F%2C5.60.0.1')
+        assert '3025.a2' in L.get_data(as_text=True)
+
     def test_isogeny_class(self):
         L = self.tc.get('/EllipticCurve/Q/11/a/')
         assert '[0, -1, 1, 0, 0]' in L.get_data(as_text=True)
@@ -120,6 +129,10 @@ class EllCurveTest(LmfdbTest):
     def test_dl_qexp(self):
         L = self.tc.get('/EllipticCurve/Q/download_qexp/66.c3/100')
         assert '0,1,1,1,1,-4,1,-2,1,1,-4,1,1,4,-2,-4,1,-2,1,0,-4,-2,1,-6,1,11,4,1,-2,10,-4,-8,1,1,-2,8,1,-2,0,4,-4,2,-2,4,1,-4,-6,-2,1,-3,11,-2,4,4,1,-4,-2,0,10,0,-4,-8,-8,-2,1,-16,1,-12,-2,-6,8,2,1,-6,-2,11,0,-2,4,10,-4,1,2,4,-2,8,4,10,1,10,-4,-8,-6,-8,-2,0,1,-2,-3,1,11' in L.get_data(as_text=True)
+
+    def test_dl_code(self):
+        for lang in ["magma", "sage", "gp", "oscar"]:
+            self.check_args(f'/EllipticCurve/Q/5077/a/1/download/{lang}', '0, 0, 1, -7, 6')
 
     def test_dl_all(self):
         L = self.tc.get('/EllipticCurve/Q/download_all/26.b2')

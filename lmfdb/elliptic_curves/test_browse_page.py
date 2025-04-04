@@ -1,5 +1,6 @@
 from lmfdb.tests import LmfdbTest
 
+
 class HomePageTest(LmfdbTest):
     # All tests should pass
     #
@@ -62,6 +63,17 @@ class HomePageTest(LmfdbTest):
         self.check_args("/EllipticCurve/Q/?jump=%5B0%2C1%2C1%2C-2%2C0%5D", '0.15246')
         self.check_args("/EllipticCurve/Q/?jump=%5B-3024%2C+46224%5D+", '0.15246')
 
+        # Check that giving defining polynomials for f,h works
+        self.check_args("/EllipticCurve/Q/?jump=x%5E3+%2B+10*x+%2B+17%2C+x", r"\frac{109902239}{176525}")
+
+        # Check that giving a Weierstrass equation works, even without explicit multiplication '*'
+        self.check_args("/EllipticCurve/Q/?jump=b%5E2+%2B+ab+%3D+a%5E3+%2B+2a+%2B+1", "-0.756030189082")
+
+        # Check that variables are only single characters
+        self.check_args("/EllipticCurve/Q/?jump=%28banana%29%5E2%3Dx%5E3%2B1", "does not define an elliptic curve")
+
+        # Check that the coefficient of x^3 does not need to be 1
+        self.check_args("/EllipticCurve/Q/?jump=4x%5E3+%2B+4x+%2B+1", '91a1')
     #
     # Various search combinations
     def test_search(self):
@@ -82,6 +94,10 @@ class HomePageTest(LmfdbTest):
                         '[0, 0, 1, -75, 256]')
         self.check_args("EllipticCurve/Q/?conductor=990&optimal=on",
                         '990h1')
-        L = self.tc.get("EllipticCurve/Q/?isogeny_degrees=13&search_type=List")
+        L = self.tc.get("EllipticCurve/Q/?isogeny_degrees=13")
         assert '[0, 0, 1, -849658625, 9532675710156]' in L.get_data(as_text=True)
         assert '[0, -1, 1, -10, -20]' not in L.get_data(as_text=True)
+
+        # Test error handling
+        L = self.tc.get("EllipticCurve/Q/?conductor=162&jinv=-1159088625%2F097152")
+        assert ' is not a valid input' in L.get_data(as_text=True)

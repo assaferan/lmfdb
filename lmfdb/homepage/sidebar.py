@@ -1,4 +1,3 @@
-# -*- coding: utf-8 -*-
 
 import os
 import yaml
@@ -10,14 +9,14 @@ def linked_name(item, level=""):
     """
     if level == "heading":
         if 'url_for' in item:
-            url = url_for(item['url_for'],**item.get('url_args',dict()))
+            url = url_for(item['url_for'],**item.get('url_args',{}))
             return ''.join(['<h2 class="link"><a href="',url,'">',item['title'],'</a></h2>\n'])
         else:
             return ''.join(['<h2>',item['title'],'</h2>\n'])
 
     else:
         if 'url_for' in item and not ('status' in item and item['status'] == 'future'):
-            url = url_for(item['url_for'],**item.get('url_args',dict()))
+            url = url_for(item['url_for'],**item.get('url_args',{}))
             this_entry = ''.join(['<a href="',url,'">',item['title'],'</a>'])
         else:
             this_entry = item['title']
@@ -53,7 +52,7 @@ class SideBar():
         self.toc_dic = yaml.load(open(os.path.join(_curdir, "sidebar.yaml")), Loader=yaml.FullLoader)
         self.main_headings = list(self.toc_dic)
         self.main_headings.sort()
-        heading = lambda k: linked_name(self.toc_dic[k]['heading'],'heading')
+        def heading(k): return linked_name(self.toc_dic[k]['heading'],'heading')
         self.data = [(k,heading(k),self.toc_dic[k]) for k in self.main_headings]
 
         for _, _, data in self.data:
