@@ -150,9 +150,12 @@ class WebGaloisGroup:
         if str(self.n()) == "1":
             return "None needed"
         gens = self.gens()
-        gens = [cyclestrings(g) for g in gens]
+        gens = ['$'+cyclestrings(g)+'$' for g in gens]
         gens = ', '.join(gens)
         return gens
+
+    def aut_knowl(self):
+        return abstract_group_display_knowl(self._data['aut_label'])
 
     def gapgroupnt(self):
         if int(self.n()) == 1:
