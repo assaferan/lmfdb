@@ -695,22 +695,27 @@ class CMF_download(Downloader):
         self.explain.append(explain)
         return out
     
-    def _gp_MakeNewForm(self, newform):
+    def _gp_MakeNewform(self, newform):
         newspace = db.mf_newspaces.lookup(newform.space_label)
         trace_bound = newspace['trace_bound']
         traces = [0] + newform.traces[:trace_bound]
-        explain = '\\\\ To make the newform, type "MakeNewForm_%s()"' % (newform.label.replace(".", "_"), )
+        explain = '\\\\ To make the newform, type "MakeNewform_%s()"' % (newform.label.replace(".", "_"), )
+        # we have a problem here because the interpreter
+        # does not support nested braces,
+        # as the gp2c-run does
         out = [explain,
-               'MakeNewForm_%s() = {' % (newform.label.replace(".", "_"), ),
+               'MakeNewform_%s() = {' % (newform.label.replace(".", "_"), ),
                '    chi = MakeCharacter_%d_%s_Hecke();' % (newform.level, newform.char_orbit_label),
                '    mf = mfinit([%d,%d,chi],0);' % (newform.level, newform.weight),
                '    lf = mfeigenbasis(mf);',
-               '    for (i = 1, #lf, {',
-               '        aps = mfcoefs(lf[i],%d);' % (trace_bound, ),
-               '        if (aps == %s, {' % (str(traces), ),
-               '            return(lf[i]);', 
-               '        });',
-               '    });',
+               '    for (i = 1, #lf, aps = mfcoefs(lf[i],%d); ' %(trace_bound,) + 
+                    'if (aps == %s, return(lf[i])););' % (str(traces), ),
+               #'        aps = mfcoefs(lf[i],%d);' % (trace_bound, ),
+               #'        if (aps == %s, return(lf[i]));' % (str(traces), ),
+               #'        if (aps == %s, {' % (str(traces), ),
+               #'            return(lf[i]);', 
+               #'        });',
+               #'    });',
                '    error("Newform not found");',
                '};' ]
         self.explain.append(explain)
@@ -738,7 +743,7 @@ class CMF_download(Downloader):
         #    out += self._pari_ExtendMultiplicatively() + newlines
         #    out += self._pari_qexpCoeffs(newform, hecke_nf) + newlines
 
-        out += self._gp_MakeNewForm(newform) + newlines   
+        out += self._gp_MakeNewform(newform) + newlines   
 
         outstr = "\n".join(self.explain + out)
 

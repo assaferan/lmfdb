@@ -1,3 +1,4 @@
+#import subprocess
 import unittest
 
 from urllib.request import Request, urlopen
@@ -92,6 +93,46 @@ class LmfdbTest(unittest.TestCase):
                 assert expected in magma.eval(magma_code)
             else:
                 raise ValueError("mode must be either 'equal' or 'in")
+    
+    def assert_if_gp(self, expected, gp_code, mode='equal'):
+        """Helper method for running test_download_gp test. Checks
+        equality only if gp is installed; if it isn't, then the test
+        passes."""
+        from sage.all import gp
+        has_gp = False
+        try:    
+            has_gp = "2" == gp.eval("1 + 1")
+        except (RuntimeError, TypeError):
+            pass
+        if has_gp:
+            if mode == 'equal':
+                # we have a problem here because gp.eval does not support
+                # nested braces, or additional line breaks
+                lines = gp_code.split('\n')
+                in_func = False
+                relevant_lines = []
+                for i, l in enumerate(lines):
+                    if l[:2] == '\\\\':
+                        continue # throwing away comments
+                    if l.strip() == '':
+                        continue # throwing away empty lines
+                    if '() = {' in l:
+                        in_func = True
+                        func_line = l
+                        continue
+                    if '};' in l:
+                        assert(in_func)
+                        func_line += l
+                        relevant_lines.append(func_line)
+                        in_func = False
+                        continue
+                    if in_func:
+                        func_line += l
+                    else:
+                        relevant_lines.append(l)
+                gp_code_for_eval = '\n'.join(relevant_lines)
+                assert expected == gp.eval(gp_code_for_eval).replace('\n', '')
+                
 
     def check_sage_compiles_and_extract_variables(self, sage_code):
         """

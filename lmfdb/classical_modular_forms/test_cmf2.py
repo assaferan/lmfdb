@@ -113,6 +113,33 @@ class CmfTest(LmfdbTest):
             magma_code = page.get_data(as_text=True) + '\n' + '%s();\n' % makenewform
             self.assert_if_magma(expected, magma_code, mode='equal')
 
+    def test_download_gp(self):
+        page = self.tc.get('/ModularForm/GL2/Q/holomorphic/download_newform_to_gp/23.1.b.a.z')
+        assert 'Label not found' in page.get_data(as_text=True)
+
+        # test MakeNewform
+        for label, expected in [
+                ['11.2.a.a',
+                    '[0, 1, -2, -1, 2, 1, 2, -2, -2, 1]'],
+                #['21.2.g.a',
+                #    'q + (-nu - 1)*q^3 + (2*nu - 2)*q^4 + (-3*nu + 2)*q^7 + 3*nu*q^9 + O(q^12)'],
+                #['59.2.a.a',
+                #    'q + (-nu^4 + 7*nu^2 + 3*nu - 5)*q^2 + (nu^4 - nu^3 - 6*nu^2 + 2*nu + 3)*q^3 + (nu^3 - nu^2 - 4*nu + 3)*q^4 + (nu^4 - 6*nu^2 - 4*nu + 3)*q^5 + (-3*nu^4 + 2*nu^3 + 17*nu^2 - 3*nu - 7)*q^6 + (-nu^2 + 3)*q^7 + (3*nu^4 - 2*nu^3 - 17*nu^2 + 3*nu + 5)*q^8 + (2*nu^4 - 13*nu^2 - 4*nu + 8)*q^9 + (3*nu^4 - 2*nu^3 - 17*nu^2 + nu + 5)*q^10 + (-4*nu^4 + 2*nu^3 + 24*nu^2 + 2*nu - 12)*q^11 + O(q^12)'],
+                #['13.2.e.a',
+                #    'q + (-nu - 1)*q^2 + (2*nu - 2)*q^3 + nu*q^4 + (-2*nu + 1)*q^5 + (-2*nu + 4)*q^6 + (2*nu - 1)*q^8 - nu*q^9 + (3*nu - 3)*q^10 + O(q^12)'],
+                #['340.1.ba.b',
+                #    'q + zeta_8*q^2 + zeta_8^2*q^4 - zeta_8^3*q^5 + zeta_8^3*q^8 - zeta_8*q^9 + q^10 + O(q^12)'],
+                #['24.3.h.a',
+                #    'q - 2*q^2 + 3*q^3 + 4*q^4 + 2*q^5 - 6*q^6 - 10*q^7 - 8*q^8 + 9*q^9 - 4*q^10 - 10*q^11 + O(q^12)'],
+                #['24.3.h.c',
+                #    'q + nu*q^2 + 1/4*(-nu^3 - 4*nu^2 - 2*nu - 12)*q^3 + nu^2*q^4 + (nu^3 + 2*nu)*q^5 + (-nu^3 + nu^2 - 3*nu + 4)*q^6 + 4*q^7 + nu^3*q^8 + 1/2*(-nu^3 - 10*nu - 10)*q^9 + (-4*nu^2 - 16)*q^10 + 1/2*(-3*nu^3 - 6*nu)*q^11 + O(q^12)'],
+                ]:
+            page = self.tc.get('/ModularForm/GL2/Q/holomorphic/download_newform_to_gp/%s' % label)
+            makenewform = 'MakeNewform_%s' % label.replace('.', '_')
+            assert makenewform in page.get_data(as_text=True)
+            gp_code = page.get_data(as_text=True) + '\n' + 'mfcoefs(%s(),11)\n' % makenewform
+            self.assert_if_gp(expected, gp_code, mode='equal')
+
     def test_expression_level(self):
         # checks we can search on 2*7^2
         self.check_args('/ModularForm/GL2/Q/holomorphic/?level=2*7%5E2', '98.2.a.a')
