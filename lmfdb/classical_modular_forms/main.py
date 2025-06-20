@@ -640,6 +640,10 @@ def download_traces(label):
 def download_newform_to_magma(label):
     return CMF_download().download_newform_to_magma(label)
 
+@cmf.route("/download_newform_to_gp/<label>")
+def download_newform_to_gp(label):
+    return CMF_download().download_newform_to_gp(label)
+
 @cmf.route("/download_newform/<label>")
 def download_newform(label):
     return CMF_download().download_newform(label)

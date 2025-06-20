@@ -683,3 +683,66 @@ class CMF_download(Downloader):
                           label,
                           lang=lang,
                           title='Make newform %s in Magma,' % (label))
+
+    #Pari/GP
+
+    def _gp_MakeCharacter(self, newform):
+        explain = '\\\\ To make the character, type "MakeCharacter_%d_%s_Hecke()"' % (newform.level, newform.char_orbit_label)
+        out = [explain,
+               'MakeCharacter_%d_%s_Hecke() = {' % (newform.level, newform.char_orbit_label),
+               '    return(Mod(%d,%d));' % (newform.conrey_index, newform.level),
+               '};' ]
+        self.explain.append(explain)
+        return out
+    
+    def _gp_MakeNewForm(self, newform):
+        newspace = db.mf_newspaces.lookup(newform.space_label)
+        trace_bound = newspace['trace_bound']
+        traces = [0] + newform.traces[:trace_bound]
+        explain = '\\\\ To make the newform, type "MakeNewForm_%s()"' % (newform.label.replace(".", "_"), )
+        out = [explain,
+               'MakeNewForm_%s() = {' % (newform.label.replace(".", "_"), ),
+               '    chi = MakeCharacter_%d_%s_Hecke();' % (newform.level, newform.char_orbit_label),
+               '    mf = mfinit([%d,%d,chi],0);' % (newform.level, newform.weight),
+               '    lf = mfeigenbasis(mf);',
+               '    for (i = 1, #lf, {',
+               '        aps = mfcoefs(lf[i],%d);' % (trace_bound, ),
+               '        if (aps == %s, {' % (str(traces), ),
+               '            return(lf[i]);', 
+               '        });',
+               '    });',
+               '    error("Newform not found");',
+               '};' ]
+        self.explain.append(explain)
+        return out
+
+    # TODO: unify this with the magma function to not have code duplication
+    def download_newform_to_gp(self, label, lang='gp'):
+        data = db.mf_newforms.lookup(label)
+        if data is None:
+            return abort(404, "Label not found: %s" % label)
+        newform = WebNewform(data)
+        # hecke_nf = self._get_hecke_nf(label)
+
+        self.explain = []
+        out = []
+        newlines = [''] * 2
+        
+        # TODO: add pari code for converting to hecke field
+        # if newform.has_exact_qexp:
+        #    out += self._pari_ConvertToHeckeField(newform, hecke_nf) + newlines
+
+        out += self._gp_MakeCharacter(newform) + newlines
+
+        #if newform.has_exact_qexp:
+        #    out += self._pari_ExtendMultiplicatively() + newlines
+        #    out += self._pari_qexpCoeffs(newform, hecke_nf) + newlines
+
+        out += self._gp_MakeNewForm(newform) + newlines   
+
+        outstr = "\n".join(self.explain + out)
+
+        return self._wrap(outstr,
+                          label,
+                          lang=lang,
+                          title='Make newform %s in Pari/GP,' % (label))

@@ -401,6 +401,7 @@ class WebNewform():
             label = self.label
             if self.hecke_cutters or self.has_exact_qexp:
                 downloads.append(('Modular form to Magma', url_for('.download_newform_to_magma', label=label)))
+                downloads.append(('Modular form to Pari/GP', url_for('.download_newform_to_gp', label=label)))
             if self.has_exact_qexp:
                 downloads.append(('q-expansion to Sage', url_for('.download_qexp', label=label)))
             downloads.append(('Trace form to text', url_for('.download_traces', label=label)))
