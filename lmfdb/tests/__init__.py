@@ -138,6 +138,8 @@ class LmfdbTest(unittest.TestCase):
                     else:
                         relevant_lines.append(l)
                 gp_code_for_eval = '\n'.join(relevant_lines)
+                print(expected)
+                print(gp.eval(gp_code_for_eval).replace('\n', ''))
                 assert expected == gp.eval(gp_code_for_eval).replace('\n', '')
                 
 

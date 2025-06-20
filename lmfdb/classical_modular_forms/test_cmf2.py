@@ -125,7 +125,7 @@ class CmfTest(LmfdbTest):
         # test MakeNewform
         for label, expected in [
                 ['11.2.a.a',
-                    '[0, 1, -2, -1, 2, 1, 2, -2, -2, 1]'],
+                    '[0, 1, -2, -1, 2, 1, 2, -2, 0, -2, -2, 1]'],
                 #['21.2.g.a',
                 #    'q + (-nu - 1)*q^3 + (2*nu - 2)*q^4 + (-3*nu + 2)*q^7 + 3*nu*q^9 + O(q^12)'],
                 #['59.2.a.a',
