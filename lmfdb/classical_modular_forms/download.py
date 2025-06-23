@@ -685,6 +685,48 @@ class CMF_download(Downloader):
                           title='Make newform %s in Magma,' % (label))
 
     #Pari/GP
+    def _gp_ConvertToHeckeField(self, newform, hecke_nf):
+        begin = ['ConvertToHeckeField(input, {pass_field = false, Kf = []}) = {']
+        gp = self.languages['gp']
+        if newform.dim == 1:
+            return begin + [    
+                    '   if(!pass_field, return([elt[1] | elt <- input]););',
+                    '   return([Mod(elt[1],Kf.pol) | elt <- input]);',
+                    '};',
+                    ]
+        elif hecke_nf['hecke_ring_cyclotomic_generator'] > 0:
+            return begin + [
+                    '    if(!pass_field, Kf = nfinit(polcyclo(%d)););' % hecke_nf['hecke_ring_cyclotomic_generator'],
+                    '    nu = Mod(variable(Kf), Kf.pol);',
+                    '    ret = [];'
+                    '    for(i = 1, #input, coeff = input[i]; ret = concat(ret, if(#coeff == 0, [0 | elt <-coeff],' +
+                            ' [elt[1]*nu^elt[2] | elt <- coeff]);',
+                    '    return(ret);',
+                    '};',
+                    ]
+        elif hecke_nf['hecke_ring_power_basis']:
+            return begin + [
+                    '   if(!pass_field, Kf = nfinit(Pol(%s,nu)););' % (newform.field_poly,),
+                    '   nu = Mod(variable(Kf), Kf.pol);',
+                    '   deg = poldegree(Kf.pol);',
+                    '   Rfbasis = [nu^i | i <- [0..deg-1]];',
+                    '   inp_vec = Rfbasis*matrix(#input[1], #input, m, n, input[n][m]);
+                    '   return([inp_vec[i] | i <- [1..#inp_vec] ]);',
+                    '};',
+                    ]
+        else:
+            return begin + [
+                    '   if(!pass_field, Kf = nfinit(Pol(%s,nu)););' % (newform.field_poly,),
+                    '   Rf_num = %s;' % (str(hecke_nf['hecke_ring_numerators']).rstrip('\n'),),
+                    '   Rf_basisdens = %s;' % (str(hecke_nf['hecke_ring_denominators']).rstrip('\n'),),
+                    '   nu = Mod(variable(Kf), Kf.pol);',
+                    '   Rf_basisnums = [sum(i=1,#elt, elt[i]*Nu^(i-1)) | elt <- Rf_num];',
+                    '   Rfbasis = [Rf_basisnums[i]/Rf_basisdens[i] | i <- [1..#Rf_basisnums]];',
+                    '   inp_vec = Rfbasis*matrix(#input[1], #input, m, n, input[n][m]);',
+                    '   return([inp_vec[i] | i <- [1..#inp_vec] ]);',
+                    '};',
+                    ]
+        return out
 
     def _gp_MakeCharacter(self, newform):
         explain = '\\\\ To make the character, type "MakeCharacter_%d_%s_Hecke()"' % (newform.level, newform.char_orbit_label)
