@@ -686,32 +686,38 @@ class CMF_download(Downloader):
 
     #Pari/GP
     def _gp_ConvertToHeckeField(self, newform, hecke_nf):
-        begin = ['ConvertToHeckeField(input, {pass_field = false, Kf = []}) = {']
+        begin = ['ConvertToHeckeField(input, {pass_field = 0, Kf = 0}) = {']
         gp = self.languages['gp']
         if newform.dim == 1:
             return begin + [    
-                    '   if(!pass_field, return([[elt[1] | elt <- input],[2,-1]]););',
-                    '   return([[Mod(elt[1],Kf.pol) | elt <- input],nfrootsof1(Kf)]);',
+                    '   powers = [[(1-elt[1])/2 | elt <- input];'
+                    '   if(!pass_field, return(powers,[2,-1]]););',
+                    '   w = Kf.tu[1];',
+                    '   return([p*w/2 | p <- powers], Kf.tu]);',
                     '};',
                     ]
         elif hecke_nf['hecke_ring_cyclotomic_generator'] > 0:
             return begin + [
-                    '    if(!pass_field, Kf = nfinit(polcyclo(%d)););' % hecke_nf['hecke_ring_cyclotomic_generator'],
+                    '    if(!pass_field, Kf = bnfinit(polcyclo(%d)););' % hecke_nf['hecke_ring_cyclotomic_generator'],
                     '    nu = Mod(variable(Kf), Kf.pol);',
                     '    ret = [];'
                     '    for(i = 1, #input, coeff = input[i]; ret = concat(ret, if(#coeff == 0, [0 | elt <-coeff],' +
                             ' [elt[1]*nu^elt[2] | elt <- coeff]);',
-                    '    return([ret,nfrootsof1(Kf)]);',
+                    '    vals_in_unit_group = [bnfisunit(Kf, ret[i]) | i <- [1..#ret] ];',
+                    '    tupowers = [v[#v] | v <- vals_in_unit_group];',
+                    '    return([tupowers, Kf.tu]);',
                     '};',
                     ]
         elif hecke_nf['hecke_ring_power_basis']:
             return begin + [
-                    '   if(!pass_field, Kf = nfinit(Pol(%s,nu)););' % (newform.field_poly,),
+                    '   if(!pass_field, Kf = bnfinit(Pol(%s,nu)););' % (newform.field_poly,),
                     '   nu = Mod(variable(Kf), Kf.pol);',
                     '   deg = poldegree(Kf.pol);',
                     '   Rfbasis = [nu^i | i <- [0..deg-1]];',
                     '   inp_vec = Rfbasis*matrix(#input[1], #input, m, n, input[n][m]);',
-                    '   return([[inp_vec[i] | i <- [1..#inp_vec] ],nfrootsof1(Kf)]);',
+                    '   vals_in_unit_group = [bnfisunit(Kf, inp_vec[i]) | i <- [1..#inp_vec] ];',
+                    '   tupowers = [v[#v] | v <- vals_in_unit_group];',
+                    '   return([tupowers, Kf.tu]);',
                     '};',
                     ]
         else:
@@ -723,7 +729,9 @@ class CMF_download(Downloader):
                     '   Rf_basisnums = [sum(i=1,#elt, elt[i]*Nu^(i-1)) | elt <- Rf_num];',
                     '   Rfbasis = [Rf_basisnums[i]/Rf_basisdens[i] | i <- [1..#Rf_basisnums]];',
                     '   inp_vec = Rfbasis*matrix(#input[1], #input, m, n, input[n][m]);',
-                    '   return([[inp_vec[i] | i <- [1..#inp_vec] ],nfrootsof1(Kf)]);',
+                    '   vals_in_unit_group = [bnfisunit(Kf, inp_vec[i]) | i <- [1..#inp_vec] ];',
+                    '   tupowers = [v[#v] | v <- vals_in_unit_group];',
+                    '   return([tupowers, Kf.tu]);',
                     '};',
                     ]
         return out
@@ -775,8 +783,9 @@ class CMF_download(Downloader):
                '    G = znstar(N, 1);',
                '    if(char_gens != G.gen, error("wrong generators for Dirichlet group"));',
                '    [values, wz] = ConvertToHeckeField(char_values, {pass_field = Kf, Kf = Kf});',
-               '    [w, zeta] = wz;',
-               
+               '    [w, z] = wz;',
+               '    chi = [G, values];', 
+               '    return([chi,[z,w]]);',
                '};' ]
         
         return out
@@ -808,10 +817,11 @@ class CMF_download(Downloader):
         # as the gp2c-run does
         out = [explain,
                'MakeNewform_%s() = {' % (newform.label.replace(".", "_"), ),
-               '    chi = MakeCharacter_%d_%s_Hecke();' % (newform.level, newform.char_orbit_label),
+               '    [chi, zw] = MakeCharacter_%d_%s_Hecke();' % (newform.level, newform.char_orbit_label),
                '    mf = mfinit([%d,%d,chi],0);' % (newform.level, newform.weight),
                '    lf = mfeigenbasis(mf);',
-               '    for (i = 1, #lf, aps = mfcoefs(lf[i],%d); ' %(trace_bound,) + 
+               '    Kf_pari = bnfinit(mfparams(mf)[5]);',
+               '    for (i = 1, #lf, aps = [nfelttrace(Kf_pari,ap) | ap <- mfcoefs(lf[i],%d)]; ' %(trace_bound,) + 
                     'if (aps == %s, return(lf[i])););' % (str(traces), ),
                #'        aps = mfcoefs(lf[i],%d);' % (trace_bound, ),
                #'        if (aps == %s, return(lf[i]));' % (str(traces), ),
@@ -836,15 +846,15 @@ class CMF_download(Downloader):
         out = []
         newlines = [''] * 2
         
-        # TODO: add pari code for converting to hecke field
-        # if newform.has_exact_qexp:
-        #    out += self._pari_ConvertToHeckeField(newform, hecke_nf) + newlines
+        
+        if newform.has_exact_qexp:
+            out += self._gp_ConvertToHeckeField(newform, hecke_nf) + newlines
 
         out += self._gp_MakeCharacters(newform, hecke_nf) + newlines
 
         #if newform.has_exact_qexp:
-        #    out += self._pari_ExtendMultiplicatively() + newlines
-        #    out += self._pari_qexpCoeffs(newform, hecke_nf) + newlines
+        #    out += self._gp_ExtendMultiplicatively() + newlines
+        #    out += self._gp_qexpCoeffs(newform, hecke_nf) + newlines
 
         out += self._gp_MakeNewform(newform, hecke_nf) + newlines   
 
