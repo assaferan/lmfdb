@@ -123,7 +123,7 @@ class LmfdbTest(unittest.TestCase):
                         continue # throwing away comments
                     if l.strip() == '':
                         continue # throwing away empty lines
-                    if '() = {' in l:
+                    if ') = {' in l:
                         in_func = True
                         func_line = l
                         continue

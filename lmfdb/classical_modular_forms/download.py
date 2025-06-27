@@ -476,7 +476,7 @@ class CMF_download(Downloader):
                 ]
         if hecke_nf is None or hecke_nf['hecke_ring_character_values'] is None:
             return out + [
-                    'function MakeCharacter_%d_%s_Hecke( : Kf := Kf)' % (newform.level, newform.char_orbit_label),
+                    'function MakeCharacter_%d_%s_Hecke( : Kf := false)' % (newform.level, newform.char_orbit_label),
                     '    return MakeCharacter_%d_%s();' % (newform.level, newform.char_orbit_label),
                     'end function;'
                     ]
@@ -690,8 +690,8 @@ class CMF_download(Downloader):
         gp = self.languages['gp']
         if newform.dim == 1:
             return begin + [    
-                    '   if(!pass_field, return([elt[1] | elt <- input]););',
-                    '   return([Mod(elt[1],Kf.pol) | elt <- input]);',
+                    '   if(!pass_field, return([[elt[1] | elt <- input],[2,-1]]););',
+                    '   return([[Mod(elt[1],Kf.pol) | elt <- input],nfrootsof1(Kf)]);',
                     '};',
                     ]
         elif hecke_nf['hecke_ring_cyclotomic_generator'] > 0:
@@ -701,7 +701,7 @@ class CMF_download(Downloader):
                     '    ret = [];'
                     '    for(i = 1, #input, coeff = input[i]; ret = concat(ret, if(#coeff == 0, [0 | elt <-coeff],' +
                             ' [elt[1]*nu^elt[2] | elt <- coeff]);',
-                    '    return(ret);',
+                    '    return([ret,nfrootsof1(Kf)]);',
                     '};',
                     ]
         elif hecke_nf['hecke_ring_power_basis']:
@@ -710,8 +710,8 @@ class CMF_download(Downloader):
                     '   nu = Mod(variable(Kf), Kf.pol);',
                     '   deg = poldegree(Kf.pol);',
                     '   Rfbasis = [nu^i | i <- [0..deg-1]];',
-                    '   inp_vec = Rfbasis*matrix(#input[1], #input, m, n, input[n][m]);
-                    '   return([inp_vec[i] | i <- [1..#inp_vec] ]);',
+                    '   inp_vec = Rfbasis*matrix(#input[1], #input, m, n, input[n][m]);',
+                    '   return([[inp_vec[i] | i <- [1..#inp_vec] ],nfrootsof1(Kf)]);',
                     '};',
                     ]
         else:
@@ -723,21 +723,82 @@ class CMF_download(Downloader):
                     '   Rf_basisnums = [sum(i=1,#elt, elt[i]*Nu^(i-1)) | elt <- Rf_num];',
                     '   Rfbasis = [Rf_basisnums[i]/Rf_basisdens[i] | i <- [1..#Rf_basisnums]];',
                     '   inp_vec = Rfbasis*matrix(#input[1], #input, m, n, input[n][m]);',
-                    '   return([inp_vec[i] | i <- [1..#inp_vec] ]);',
+                    '   return([[inp_vec[i] | i <- [1..#inp_vec] ],nfrootsof1(Kf)]);',
                     '};',
                     ]
         return out
 
-    def _gp_MakeCharacter(self, newform):
-        explain = '\\\\ To make the character, type "MakeCharacter_%d_%s_Hecke()"' % (newform.level, newform.char_orbit_label)
+    def _gp_MakeCharacters(self, newform, hecke_nf):
+        """
+        Given a WebNewform r from mf_newforms containing columns
+        level,weight,char_orbit_label,char_values
+        returns a string containing gp code to create the character
+        for r in gp using the default generators.
+        """
+        level = newform.level
+        order = newform.char_values[1]
+        char_gens = newform.char_values[2]
+
+        explain = '\\\\ To make the character, type "MakeCharacter_%s_%s()"' % (level, newform.char_orbit_label)
         out = [explain,
-               'MakeCharacter_%d_%s_Hecke() = {' % (newform.level, newform.char_orbit_label),
-               '    return(Mod(%d,%d));' % (newform.conrey_index, newform.level),
+               'MakeCharacter_%d_%s() = {' % (level, newform.char_orbit_label),
+               '    return(znchar(Mod(%d,%d)));' % (newform.conrey_index, newform.level),
                '};' ]
         self.explain.append(explain)
+
+        if hecke_nf is None or hecke_nf['hecke_ring_character_values'] is None:
+            return out + [
+                    'MakeCharacter_%d_%s_Hecke({Kf = 0}) = {' % (level, newform.char_orbit_label),
+                    '    return(MakeCharacter_%d_%s());' % (level, newform.char_orbit_label),
+                    '};'
+                    ]
+        else:
+            # hecke_nf['hecke_ring_character_values'] = list of pairs
+            #   [[m1,[a11,...a1n]],[m2,[a12,...,a2n]],...] where [m1,m2,...,mr]
+            #   are generators for Z/NZ and [ai1,...,ain] is the value of chi(mi)
+            #   expressed in terms of the Hecke ring basis or in cyclotomic representation
+            #   [[c,e]] encoding c x zeta_m^e where m is hecke_ring_cyclotomic_generator
+            assert char_gens == [elt[0] for elt in hecke_nf['hecke_ring_character_values']]
+            char_values = [elt[1] for elt in hecke_nf['hecke_ring_character_values']]
+            explain = '\\\\ To make the character with Codomain the HeckeField, type "MakeCharacter_%d_%s_Hecke();"' % (level, newform.char_orbit_label)
+            self.explain.append(explain)
+            out += [
+                explain,
+               'MakeCharacter_%d_%s_Hecke({Kf = 0}) = {' % (newform.level, newform.char_orbit_label),
+               '    N = %d;' % (level,),
+               '    order = %d;' % (order,),
+               '    char_gens = %s;' % (char_gens,),
+               # !! TODO - check if this is correct or if we need to check a permutation
+               '    char_gens = [char_gens[#char_gens + 1 - i] | i <- [1..#char_gens]];',
+               '    char_values = %s;' % (char_values,),
+               '    char_values = [char_values[#char_values + 1 - i] | i <- [1..#char_values]];',
+               '    G = znstar(N, 1);',
+               '    if(char_gens != G.gen, error("wrong generators for Dirichlet group"));',
+               '    [values, wz] = ConvertToHeckeField(char_values, {pass_field = Kf, Kf = Kf});',
+               '    [w, zeta] = wz;',
+               
+               '};' ]
+        
         return out
     
-    def _gp_MakeNewform(self, newform):
+    def _gp_MakeNewform(self, newform, hecke_nf):
+        """
+        Given a WebNewform r from mf_newforms containing columns::
+
+            label,level,weight,char_orbit_label,char_values
+
+        and h a row from mf_hecke_nf containing columns::
+
+            hecke_ring_numerators,hecke_ring_denominators,
+            hecke_ring_cyclotomic_generator
+
+        and v a list whose nth entry is the entry an from the table mf_hecke_nf
+        (consisting of a list of integers giving the Hecke eigenvalue
+        as a linear combination of the basis specified in the orbit table)
+        so in particular v[0] = 0 and v[1] = 1,
+        returns a string containing gp code to create the newform
+        as a representative q-expansion (type ModFrm) in gp.
+        """
         newspace = db.mf_newspaces.lookup(newform.space_label)
         trace_bound = newspace['trace_bound']
         traces = [0] + newform.traces[:trace_bound]
@@ -769,7 +830,7 @@ class CMF_download(Downloader):
         if data is None:
             return abort(404, "Label not found: %s" % label)
         newform = WebNewform(data)
-        # hecke_nf = self._get_hecke_nf(label)
+        hecke_nf = self._get_hecke_nf(label)
 
         self.explain = []
         out = []
@@ -779,13 +840,13 @@ class CMF_download(Downloader):
         # if newform.has_exact_qexp:
         #    out += self._pari_ConvertToHeckeField(newform, hecke_nf) + newlines
 
-        out += self._gp_MakeCharacter(newform) + newlines
+        out += self._gp_MakeCharacters(newform, hecke_nf) + newlines
 
         #if newform.has_exact_qexp:
         #    out += self._pari_ExtendMultiplicatively() + newlines
         #    out += self._pari_qexpCoeffs(newform, hecke_nf) + newlines
 
-        out += self._gp_MakeNewform(newform) + newlines   
+        out += self._gp_MakeNewform(newform, hecke_nf) + newlines   
 
         outstr = "\n".join(self.explain + out)
 
