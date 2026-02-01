@@ -425,20 +425,20 @@ class LMFDBSearchTable(PostgresSearchTable):
         check_space(grace_space_claimed["scratch"], grace_scratch, "grace.mit.edu /scratch", ts_filter(grace_ops, "scratch"))
 
         # Get a connection to devmirror so that we can see which operations have been mirrored there
-        devmirror = PostgresDatabase(host="devmirror.lmfdb.xyz", user="lmfdb", password="lmfdb", port="5432")
-        dm_ops = list(devmirror._execute(op_cmd))
+        #devmirror = PostgresDatabase(host="devmirror.lmfdb.xyz", user="lmfdb", password="lmfdb", port="5432")
+        #dm_ops = list(devmirror._execute(op_cmd))
         # dm_finished is a set with logids that have finished mirroring; dm_space_claimed is a dictionary (by tablespace) of how much space the in-progress operations might need
-        dm_finished, dm_space_claimed = get_space_needed(dm_ops)
+        #dm_finished, dm_space_claimed = get_space_needed(dm_ops)
         # Devmirror stores everything in one place
-        dm_space_claimed = sum(dm_space_claimed.values()) + size_guess
+        #dm_space_claimed = sum(dm_space_claimed.values()) + size_guess
         # Determine how much space is available
-        dm_available = devmirror_space_available()
+        #dm_available = devmirror_space_available()
         # Check that there is sufficient space in all tablespaces
-        check_space(dm_space_claimed, dm_available, "devmirror.lmfdb.xyz", dm_ops)
+        # check_space(dm_space_claimed, dm_available, "devmirror.lmfdb.xyz", dm_ops)
 
         # Delete entries from userdb.ongoing_operations that have finished on both grace and devmirror
-        for deleted_id in grace_finished.intersection(dm_finished):
-            self._execute(SQL("DELETE FROM userdb.ongoing_operations WHERE logid = %s"), [deleted_id])
+        #for deleted_id in grace_finished.intersection(dm_finished):
+        #    self._execute(SQL("DELETE FROM userdb.ongoing_operations WHERE logid = %s"), [deleted_id])
 
         # Insert this operation
         logid = self._execute(SQL("INSERT INTO userdb.ongoing_operations (finishing, space_impact, tablespace, time, tablename, operation, username) VALUES (%s, %s, %s, %s, %s, %s, %s) RETURNING logid"), [False, size_guess, tablespace, utc_now_naive(), self.search_table, changetype, self._db.login()]).fetchone()[0]
