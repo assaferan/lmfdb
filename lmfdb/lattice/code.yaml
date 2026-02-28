@@ -66,7 +66,7 @@ discriminant:
 level:
   comment: Level
   magma: Level(L);
-  sage: 2/L.genus().norm()
+  #sage: to be checked
   oscar: 2//norm(dual(L))
 
 class_number:
