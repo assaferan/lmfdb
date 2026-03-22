@@ -174,8 +174,8 @@ class WebLat(WebObj):
         if self.discriminant_form is None:
             return "not computed"
 
-        # Exponent of the discriminant group
-        disc_exponent = max(self.discriminant_group_invs) if self.discriminant_group_invs not None else 1
+        # Compute exponent of the discriminant group
+        disc_exponent = max(self.discriminant_group_invs) if (len(self.discriminant_group_invs) > 0) else 1
         mat_latex = latex(matrix(vect_to_sym2(self.discriminant_form)))
         # Determine modulus (either mod Z or mod 2Z depending on parity)
         if self.is_even:
