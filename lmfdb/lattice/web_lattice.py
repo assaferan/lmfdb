@@ -175,7 +175,7 @@ class WebLat(WebObj):
             return "not computed"
 
         # Exponent of the discriminant group
-        disc_exponent = max(self.discriminant_group_invs)
+        disc_exponent = max(self.discriminant_group_invs) if self.discriminant_group_invs not None else 1
         mat_latex = latex(matrix(vect_to_sym2(self.discriminant_form)))
         # Determine modulus (either mod Z or mod 2Z depending on parity)
         if self.is_even:
@@ -183,7 +183,10 @@ class WebLat(WebObj):
         else:
             mod_string = r"\mathrm{mod}\ \mathbb{Z}"
 
-        disc_gram_latex = rf"$\dfrac{{1}}{{{disc_exponent}}} {mat_latex} \quad ({mod_string})$"
+        if disc_exponent != 1:
+            disc_gram_latex = rf"$\dfrac{{1}}{{{disc_exponent}}} {mat_latex} \quad ({mod_string})$"
+        else:
+            disc_gram_latex = rf"${mat_latex} \quad ({mod_string})$"
         #print("***", disc_gram_latex)
         return disc_gram_latex
 
