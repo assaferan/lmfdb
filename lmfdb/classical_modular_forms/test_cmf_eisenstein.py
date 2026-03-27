@@ -113,6 +113,7 @@ class CmfTest(LmfdbTest):
                 assert elt in page.get_data(as_text=True)
                 assert "Space of modular forms of " in page.get_data(as_text=True)
 
+    # Oops, needs to check the hash on traces here
     def test_tracehash(self):
         for t, l in [[-121597739728372579,'867.2.E.i.bb'],[-67108865, '1.4.E.a.a'],[0,'not found']]:
             page = self.tc.get("/ModularForm/GL2/Q/holomorphic/?jump=%%23%d" % t, follow_redirects=True)
