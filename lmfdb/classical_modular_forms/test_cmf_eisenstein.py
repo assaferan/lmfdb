@@ -168,3 +168,20 @@ class CmfTest(LmfdbTest):
         # !!! We do not have L-functions for Eisenstein series yet
         # page = self.tc.get('/L/ModularForm/GL2/Q/holomorphic/1/12/a/a/', follow_redirects=True)
         # assert '0.792122' in page.get_data(as_text=True)
+
+    def test_level2(self):
+        r"""
+        Check that the weight 2 form of level 2 works.
+        """
+        page = self.tc.get("/ModularForm/GL2/Q/holomorphic/2/2/E/a/a/")
+        assert '24' in page.get_data(as_text=True)
+        assert '4 q^{3}' in page.get_data(as_text=True)
+        # We still don't have embedding data for Eisenstein series
+        # page = self.tc.get("/ModularForm/GL2/Q/holomorphic/2/2/E/a/a/?format=satake")
+        # assert r'0.707107' in page.get_data(as_text=True)
+        # assert r'0.957427' in page.get_data(as_text=True)
+        # assert r'0.223607' in page.get_data(as_text=True)
+        # assert r'0.974679' in page.get_data(as_text=True)
+        ## !!! We do not have L-functions for Eisenstein series yet
+        # page = self.tc.get('/L/ModularForm/GL2/Q/holomorphic/2/2/E/a/a/', follow_redirects=True)
+        # assert '0.253841' in page.get_data(as_text=True)
