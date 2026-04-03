@@ -147,3 +147,24 @@ class CmfTest(LmfdbTest):
         assert "The newform 100.2.E.a.a is not in the database" in page.get_data(as_text=True)
         page = self.tc.get('/ModularForm/GL2/Q/holomorphic/?level=1000&weight=3-&is_cuspidal=no', follow_redirects=True)
         assert "No matches" in page.get_data(as_text=True)
+
+    def test_E4(self):
+        r"""
+        Check that E4 is ok....
+        """
+        page = self.tc.get("/ModularForm/GL2/Q/holomorphic/1/4/E/")
+        assert '1.4.E.a.a' in page.get_data(as_text=True)
+        page = self.tc.get("/ModularForm/GL2/Q/holomorphic/1/4/E/a/")
+        assert '1.4.E.a.a' in page.get_data(as_text=True)
+        assert '240' in page.get_data(as_text=True)
+        assert '344' in page.get_data(as_text=True)
+        page = self.tc.get("/ModularForm/GL2/Q/holomorphic/1/4/E/a/a/")
+        assert '1/240' in page.get_data(as_text=True)
+        assert '9 q^{2}' in page.get_data(as_text=True)
+        # !!! We still don't have embedding data for Eisenstein series
+        # page = self.tc.get("/ModularForm/GL2/Q/holomorphic/1/4/E/a/a/?format=satake")
+        # assert '0.299367' in page.get_data(as_text=True)
+        # assert '0.954138' in page.get_data(as_text=True)
+        # !!! We do not have L-functions for Eisenstein series yet
+        # page = self.tc.get('/L/ModularForm/GL2/Q/holomorphic/1/12/a/a/', follow_redirects=True)
+        # assert '0.792122' in page.get_data(as_text=True)
