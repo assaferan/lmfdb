@@ -208,3 +208,10 @@ class CmfTest(LmfdbTest):
         assert r'1514 q^{9}' in page.get_data(as_text=True)
         assert r'\Q(\sqrt{-1})' in page.get_data(as_text=True)
         assert r'25' in page.get_data(as_text=True)
+
+    def test_get_args(self):
+        page = self.tc.get("/ModularForm/GL2/Q/holomorphic/13/10/E/b/")
+        assert '40353606' in page.get_data(as_text=True)
+        assert '-40353606' in page.get_data(as_text=True)
+
+    
