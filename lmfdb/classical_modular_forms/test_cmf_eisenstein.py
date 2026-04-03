@@ -185,3 +185,12 @@ class CmfTest(LmfdbTest):
         ## !!! We do not have L-functions for Eisenstein series yet
         # page = self.tc.get('/L/ModularForm/GL2/Q/holomorphic/2/2/E/a/a/', follow_redirects=True)
         # assert '0.253841' in page.get_data(as_text=True)
+
+    def test_triv_character(self):
+        page = self.tc.get("/ModularForm/GL2/Q/holomorphic/9/4/E/a/a/")
+        assert r'344 q^{7}' in page.get_data(as_text=True)
+        assert r'288 q^{3}' not in page.get_data(as_text=True) # Verifying this is not the level 1 E4 form
+        assert '1134' in page.get_data(as_text=True)
+        page = self.tc.get("/ModularForm/GL2/Q/holomorphic/25/8/E/a/a/")
+        assert '2113665 q^{8}' in page.get_data(as_text=True)
+        assert '36130444' in page.get_data(as_text=True)
