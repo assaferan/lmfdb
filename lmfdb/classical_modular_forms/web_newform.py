@@ -565,7 +565,11 @@ class WebNewform():
         data = db.mf_newforms_eis.lookup(label)
         if data is None:
             # Display a different error if Nk^2 is too large
-            N, k, a, x = label.split('.')
+            split_label = label.split('.')
+            if len(split_label) == 4:
+                N, k, a, x = split_label
+            elif len(split_label) == 5:
+                N, k, aut_type, a, x = split_label
             Nk2 = int(N) * int(k) * int(k)
             nontriv = a != "a"
             from .main import Nk2_bound

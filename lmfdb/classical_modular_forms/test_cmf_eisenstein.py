@@ -132,3 +132,18 @@ class CmfTest(LmfdbTest):
                      ['yes&weight=-2&is_cuspidal=no', 'There are no newforms specified by the query']]:
             page = self.tc.get("/ModularForm/GL2/Q/holomorphic/?jump=%s" % j, follow_redirects=True)
             assert l in page.get_data(as_text=True)
+
+    def test_failure(self):
+        r"""
+        Check that bad inputs are handled correctly
+        """
+        page = self.tc.get('/ModularForm/GL2/Q/holomorphic/983/2000/E/c/a/', follow_redirects=True) 
+        assert "Level and weight too large" in page.get_data(as_text=True)
+        assert "for non trivial character." in page.get_data(as_text=True)
+        page = self.tc.get('/ModularForm/GL2/Q/holomorphic/1000/4000/E/a/a/', follow_redirects=True)
+        assert "Level and weight too large" in page.get_data(as_text=True)
+        assert " for trivial character." in page.get_data(as_text=True)
+        page = self.tc.get('/ModularForm/GL2/Q/holomorphic/100/2/E/a/a/', follow_redirects=True)
+        assert "The newform 100.2.E.a.a is not in the database" in page.get_data(as_text=True)
+        page = self.tc.get('/ModularForm/GL2/Q/holomorphic/?level=1000&weight=3-&is_cuspidal=no', follow_redirects=True)
+        assert "No matches" in page.get_data(as_text=True)
