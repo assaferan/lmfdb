@@ -194,3 +194,17 @@ class CmfTest(LmfdbTest):
         page = self.tc.get("/ModularForm/GL2/Q/holomorphic/25/8/E/a/a/")
         assert '2113665 q^{8}' in page.get_data(as_text=True)
         assert '36130444' in page.get_data(as_text=True)
+
+    def test_non_triv_character(self):
+        r"""
+        Check that non-trivial characters are also working.
+        """
+        page = self.tc.get("/ModularForm/GL2/Q/holomorphic/13/2/E/e/a/")
+        assert r'\Q(\sqrt{-3})' in page.get_data(as_text=True)
+        # !!! We do not have the embedding data for Eisenstein series yet
+        # assert '0.866025' in page.get_data(as_text=True)
+        assert r'7 q^{6}' in page.get_data(as_text=True)
+        page = self.tc.get("/ModularForm/GL2/Q/holomorphic/25/4/E/b/a/")
+        assert r'1514 q^{9}' in page.get_data(as_text=True)
+        assert r'\Q(\sqrt{-1})' in page.get_data(as_text=True)
+        assert r'25' in page.get_data(as_text=True)
