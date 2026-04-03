@@ -335,10 +335,11 @@ def QDimensionNewEisensteinForms(chi, k):
     return D*chi['degree']
 
 
-def make_newspace_data(level, char_data, k=2):
+def make_newspace_data(level, char_data, k=2, aut_type='C'):
     # Makes the data needed for creating newspace pages in cases without a corresponding entry in mf_newspaces
     data = {}
     data['has_mf_newspaces_entry'] = False
+    data['is_cuspidal'] = aut_type == 'C'
     data['Nk2'] = level * k**2
     data['char_conductor'] = char_data['conductor']
     data['char_degree'] = char_data['degree']
@@ -352,7 +353,7 @@ def make_newspace_data(level, char_data, k=2):
     data['dim'] = int(gp('mfdim([%i, %i, znchar(Mod(%i,%i))], 0)' % (level, k, data['conrey_index'], level))) * char_data['degree'] # mfdim returns the dimension over Q(chi), not over Q
     data['eis_dim'] = int(gp('mfdim([%i, %i, znchar(Mod(%i,%i))], 3)' % (level, k, data['conrey_index'], level))) * char_data['degree']
     data['eis_new_dim'] = QDimensionNewEisensteinForms(char_data, k)
-    data['label'] = str(level) + '.' + str(k) + '.' + data['char_orbit_label']
+    data['label'] = str(level) + '.' + str(k) + '.' + aut_type + '.' + data['char_orbit_label']
     data['level'] = level
     data['level_is_prime'] = ZZ(level).is_prime()
     data['level_is_prime_power'] = ZZ(level).is_prime_power()
@@ -475,16 +476,22 @@ class WebNewformSpace():
         if not valid_label(label):
             raise ValueError("Invalid modular forms space label %s." % label)
         data = db.mf_newspaces_eis.lookup(label)
+        split_label = label.split('.')  
         if data is None:
-            weight = int(label.split('.')[1])
-            if (weight != 2) or (label.split('.')[-1] == 'a'):
+            weight = int(split_label[1])
+            if (weight != 2) or (split_label[-1] == 'a'):
                 raise ValueError("Space %s not found" % label)
-            level = int(label.split('.')[0])
-            char_label = str(level) + '.' + label.split('.')[-1]
+            level = int(split_label[0])
+            char_label = str(level) + '.' + split_label[-1]
             char_data = db.char_dirichlet.lookup(char_label)
             if not char_data:
                 raise ValueError("Space %s not found" % label)
-            data = make_newspace_data(level, char_data)
+            if len(split_label) == 4:
+                aut_type = split_label[2]
+            else:
+                aut_type = 'C'
+            # This no longer gets called for cusp forms. Do we still want it to work?
+            data = make_newspace_data(level, char_data, k=weight,aut_type=aut_type)
         return WebNewformSpace(data)
 
     @property

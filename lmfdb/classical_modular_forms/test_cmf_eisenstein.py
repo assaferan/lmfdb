@@ -214,4 +214,15 @@ class CmfTest(LmfdbTest):
         assert '40353606' in page.get_data(as_text=True)
         assert '-40353606' in page.get_data(as_text=True)
 
-    
+    def test_empty(self):
+        page = self.tc.get("/ModularForm/GL2/Q/holomorphic/2/8/E/a/")
+        assert 'The following table gives the dimensions of various' in page.get_data(as_text=True)
+        assert 'subspaces' in page.get_data(as_text=True)
+        assert r'\(M_{8}(\Gamma_0(2))\)' in page.get_data(as_text=True)
+        page = self.tc.get("/ModularForm/GL2/Q/holomorphic/12/3/E/a/")
+        assert 'weight is odd while the character is ' in page.get_data(as_text=True)
+        # This does not work correctly - a problem with ALdims not being initialized for empty spaces
+        page = self.tc.get("/ModularForm/GL2/Q/holomorphic/12/6/E/a/")
+        # !!! TODO - figure out what should make this work
+        # for elt in ['Decomposition', r'S_{6}^{\mathrm{old}}(\Gamma_0(12))', 'lower level spaces']:
+        #    assert elt in page.get_data(as_text=True)
