@@ -2,14 +2,15 @@
 
 > **STATUS: work-in-progress draft (updated 2026-07-21).** Co-developed by Eran + Claude, grounded in the
 > code. Not final and **not a substitute for `QUESTIONS.md`** (per BOARD, David answers there).
-> All 15 questions now have draft answers; items marked **DECIDED (Eran)** are settled, items marked
-> **⟐** are open sub-decisions (e.g. Q8 route, Q11 name-grammar votes, Q13 trace-depth tiering).
+> All 15 questions have draft answers; **DECIDED (Eran)** = settled, **⟐** = open sub-decision.
+> See the 'Open sub-decisions' section for the consolidated to-do list.
 
 Prepared for Eran's review before anything is copied into the real `QUESTIONS.md` on
 `roed-math/lmfdb@shimura_curves`. Everything below is grounded in the local code
 (`~/Documents/GitHub/ShimCurve` and `lmfdb/lmfdb/shimura_curves/`); Q4/Q5/Q8 include
-empirical Magma runs. **`⟐ DECISION`** marks the parts that are genuinely yours/David's
-call, not something the code determines.
+empirical Magma runs. **`DECIDED (Eran)`** marks calls Eran has already made in review;
+**`⟐`** marks the sub-decisions still open (genuinely Eran's/David's call, not something the
+code determines). All 15 questions have draft answers.
 
 ---
 
@@ -56,8 +57,9 @@ code; the *mapping* is not).
 
 ## Q2. `gerbiness`, `aut_gerbiness`, `Gerby_gen`
 
-**Answer:** The single most important finding: **the name `gerbiness` is currently attached to
-two different groups.** Deciding which one the LMFDB column means is the real question here.
+**Answer:** The crux (now resolved, see 1): **the name `gerbiness` is currently attached to
+two different groups in the code**, and the LMFDB column should be neither of the two verbatim —
+Eran's decision below fixes which group it is.
 
 - In `enumerate-H.m` (`createRecord`, :246-248): `gerbiness = #KG_level` counts the reduced-mod-N
   **root-of-unity gerbe band** — the cyclic kernel `⟨ζ_{2n}⟩ ⊂ Oˣ` of
@@ -141,6 +143,9 @@ two different groups.** Deciding which one the LMFDB column means is the real qu
    / the skew-commuting χ, **not** the enumeration of polarization classes) — so T08 must **add**
    Pollack-class enumeration; nothing in the repo does it today. (`polarization-twisting.m:213-214`'s
    worry about "many candidates for chi" is the *automorphism* multiplicity, a different thing.)
+   **⟐ Cross-reference / cascade:** since the curve label is built on `mu_label`, adding a Pollack
+   index there lengthens the *curve* label arity too — coordinate with Q11 (names), Q15/T29 (label
+   determinism), and the frontend `LABEL_RE` (`main.py:58-61`), which will need the extra component.
 
 2. **Canonical representative — recommended yes, keyed to the Pollack class.** For reproducible
    stored `mu`/`AutmuO_generators`, within each Pollack class store the lex-minimal short vector:
@@ -599,13 +604,43 @@ displayed genus decomposition is only correct when `aut_gerbiness = 1` — resto
   injectivity assert at `aut_mu_O.m:66` — it fires on exactly the deg μ > 1 rows we now need.
 - **T19 is "fix," not "write":** the general normalizer path already exists but fails its own
   normalizer assert on D=6 (`elliptic-elements.m:97`) — shipped data used the old hardcoded
-  generators (Q8).
+  generators (Q8). Claude recommends rebuilding it algebraically (option B) for the release.
+- **Polarizations are NOT unique per degree (Q3, Rotger/Pollack conjugation)** — the label
+  `discB.discO.deg_mu` needs a class-index suffix and `quaternion_orders_polarized` needs multiple
+  rows per (order, degree); the added label component cascades into the curve label + `LABEL_RE`.
+  T08 must enumerate Pollack classes *completely*, which nothing does today.
+- **Jacobian decomposition is wrong for Eichler rows until the JL space is made M-aware (Q13)** —
+  the code uses D,N only; with Eichler orders in scope (Q12.1) T13 must switch to D·M·N (D-newness
+  still keyed to D). Ships incorrect `rank`/`conductor`/`newforms` for every M>1 row otherwise.
 - **All obstruction/CM/point-count and enhanced-curve exact-gonality columns are NULL today**
   (Q9/Q10) — the frontend can display them but no data is generated.
 - **`quaternion-orders.m` disagrees with `quaternion-orders.txt` on `area` by a factor of 2**
   (Q14, stale file); and the frontend genus display drops the `aut_gerbiness` factor present in
   the Magma Gauss–Bonnet check — both to fix under T06.
 - **Minor code bug (Q10):** `X0DN_code.m:1394` `gon_Qbar := gon_Q_low` looks wrong.
+
+---
+
+## Open sub-decisions still needing Eran/David (the remaining ⟐)
+
+Everything else is DECIDED. These are the sub-choices left:
+
+- **Q8 (biggest):** pick the normalizer-generator route — Claude recommends **(B) algebraic**; final
+  call depends on how close the `beyond_disc6` scheme (option A) is.
+- **Q11:** the three name-grammar votes — second slot (level M vs discO), partial-AL notation
+  (TeX quotient vs bracket), deg μ in names (principal-only vs decorated). See appendix.
+- **Q14:** the `area` column name — keep value `φψ/12`, rename to `covol_over_4pi` / store `−χ/2` as
+  `chi` (Claude's lean: keep value, rename).
+- **Q2 (minor):** `Gerby_gen` coordinate convention (`Eltseq(B!·)` vs `Eltseq(O!·)`); whether to
+  rename `aut_gerbiness`/`base_gerbiness`; the 2-line LSSV §3.5 check that ker(f) is the gerbe band.
+- **Q3 (minor):** the exact canonical-μ ordering within a Pollack class; the label-cascade
+  coordination (Q11/Q15/`LABEL_RE`).
+- **Q7 (minor):** which signature source is authoritative (fixed normalizer generators vs Ogg
+  `SignatureX0DNmodAtkinLehnerElement`) — they must agree; validation against the literature is
+  already decided.
+- **Q13 (minor):** the trace-depth tiering specifics; plus two things to verify on the devmirror —
+  that `HTraces` is handed the level-M order, and whether the default `mf_newforms.traces` is long
+  enough (else pull extended a_p).
 
 ---
 
