@@ -1,9 +1,9 @@
 # Draft answers to shimcurve_tickets/QUESTIONS.md
 
-> **STATUS: work-in-progress draft (2026-07-17).** Co-developed by Eran + Claude, grounded in the
+> **STATUS: work-in-progress draft (updated 2026-07-21).** Co-developed by Eran + Claude, grounded in the
 > code. Not final and **not a substitute for `QUESTIONS.md`** (per BOARD, David answers there).
 > Items marked **DECIDED (Eran)** are Eran's calls already made; items marked **⟐ DECISION** are
-> still open for Eran/David. Several questions (Q7, Q9, Q10, Q13, …) are not yet worked through.
+> still open. Q9/Q10/Q13 not yet worked through.
 
 Prepared for Eran's review before anything is copied into the real `QUESTIONS.md` on
 `roed-math/lmfdb@shimura_curves`. Everything below is grounded in the local code
@@ -255,12 +255,20 @@ consumes `scalar_label` yet, this is low-risk and can ride along with T11 whenev
    `[2,4,6]`.** `EnhancedEllipticPoints` (`genera.m:18`) assumes the base is the (2,4,6)-triangle
    quotient. The general fix: read the base orders off the actual elliptic generators of
    `N_{Bˣ}(O)⁺/Qˣ` (they come in the same order as σ), i.e. replace `bottom := [2,4,6]` with the
-   list of their orders. Two in-repo routes give those orders for general (D,μ): (a) **Voight/
-   Fuchsian** — `FuchsianGroup(O)` + `EllipticInvariants`, already used at `tablesX0DN.m:136,196`,
-   extended by the image of Aut_{±μ}(O); or (b) **Ogg/algebraic** —
-   `SignatureX0DNmodAtkinLehnerElement` (`X0DN_code.m:185`) already returns AL-quotient signatures
-   in the `[genus,[2,·],[3,·],[4,·],[6,·]]` shape. ⟐ You choose which route T20 uses; the Fuchsian
-   route is the natural general replacement.
+   list of their orders — **so Q7's input is exactly Q8's output; Q7 falls out once Q8 works.**
+   Note (per Eran, see Q8): `FuchsianGroup(O)` gives only the O¹ base signature, *not* the
+   normalizer/Aut quotient, so the enhanced bottom cannot be read straight off it. The two viable
+   sources for the enhanced base orders: (a) the **normalizer elliptic generators produced by the
+   fixed Q8 routine** (their orders in Bˣ/Qˣ), or (b) the **Ogg/algebraic** signatures
+   `SignatureX0DNmodAtkinLehnerElement` (`X0DN_code.m:185`), already in the
+   `[genus,[2,·],[3,·],[4,·],[6,·]]` shape.
+   **DECIDED (Eran): validate against the formulas in the literature.** Conveniently the literature
+   formula is already coded: `SignatureX0DNmodAtkinLehnerElement` implements **Ogg83** (CM orders of
+   fixed points from Ogg83; genus via Riemann–Hurwitz / Ogg83 Eqn 3). So T20 should **triple-check**
+   the enhanced base orders: (computed normalizer-generator orders) vs (Ogg83 via
+   `SignatureX0DNmodAtkinLehnerElement`) vs (the classical Eichler elliptic-point formulas e₂/e₃ and
+   Voight, *Quaternion Algebras*, Ch. 30 & 39). All three must agree — that agreement is the
+   correctness certificate, and it doubles as the validation oracle for Q8(B)'s generators.
 
 2. **Bottom is not always genus 0** for larger D (X(D;1) itself has positive genus for many D,
    and its Aut quotient can too). Good news: the genus pipeline (`EnhancedGenus`, Riemann–Hurwitz,
@@ -283,31 +291,59 @@ not), their ν-columns should be re-checked once the base-order generalization l
 
 ## Q8. Generators of the positive-norm normalizer for general D
 
-**Answer:** **The premise is out of date — and there's a live bug worth knowing about.**
+**Answer:** **The premise is out of date; T19 is "finish the in-progress branch," not "write."**
 
 - The D∈{6,10,15} hardcode + `"oops, not written for this discriminant yet"` exists **only in git
-  history** (commit `9651827`). The working tree's `NormalizerPlusGenerators`
+  history** (commit `9651827`). Work on the general case lives on branch **`beyond_disc6`**
+  (commits `db9298c "first steps to get normalizers and elliptic elements"`,
+  `cbdbd7c "fixed issue with finding the elliptic elements"`, plus **uncommitted WIP** in Eran's
+  working tree). It is the only branch with this; `quat_orders`/`refactor`/`roed:newmain`/both
+  `main`s predate `normalizing_element_of_norm`. The working-tree `NormalizerPlusGenerators`
   (`elliptic-elements.m:109`) is already general: `require IsEichler(O)` then returns
   `[normalizing_element_of_norm(O,d) : d in HallDivisors(D*N) | d ne 1]`.
-- **But the generalized code is currently broken even for D=6:** `normalizing_element_of_norm(O,2)`
-  fails its own `assert … in O` normalizer check (`elliptic-elements.m:97`), reproduced 3/3 in my
-  run. So the shipped tables were generated with the *old hardcoded* generators; the new
-  Hall-divisor path does not yet work on the one discriminant we ship. T19 is really "make the
-  already-written general path work," not "write it."
+- **It is mid-debug and currently fails for D=6, d=2.** Eran's uncommitted changes: refactor the
+  signature to `(O,d)`, perturb the ε-search by `D=&*ps` (the CRT modulus) instead of `d`, and — the
+  key one — **add a genuine normalizer check** `assert &and[mu*b*mu^(-1) in O : b in basisO]`. That
+  assert correctly fires because the construction is under-determined:
+  - the scheme only keeps integrality equations whose entry denominator is exactly `Norm(mu)`
+    (`nums := [Numerator(a) : a in Eltseq(A) | Denominator(a) eq Norm(mu)]`) — a
+    necessary-but-not-sufficient proxy for "μ normalizes O"; and
+  - **the p=2 branch is explicitly punted** (`if (d mod p eq 0) then continue; // think later how to
+    handle p = 2`), and d=2 is exactly the D=6 failure. So the ±5-box CRT search returns a norm-2
+    element that isn't a true w₂, and the new assert catches it. The assert is right; the search is
+    incomplete.
+- **Structural issue to flag:** the routine *conflates two jobs* — it filters `Trace²<4·Norm` to
+  return only **elliptic** elements, but `G1plus` needs the **Atkin–Lehner generators** (involutions,
+  generally not elliptic) while Q7 needs the **elliptic/torsion** elements. Different sets; bundling
+  them in one Hall-divisor loop is part of the fragility.
 
-1. **⟐ DECISION — recommended construction:** compute via Magma's `FuchsianGroup(O)` (Voight
-   fundamental domains), which is already used in the repo (`tablesX0DN.m:136`, `hep_utils.m`),
-   returns elliptic/normalizer generators directly, and gives the orders Q7 needs. Cache to disk
-   (fundamental-domain computation is the expensive step). This is more robust than repairing the
-   bespoke `normalizing_element_of_norm` search. The pure-algebraic route (explicit AL lifts of
-   norm exactly m ‖ DN + unit generators) is also acceptable and more transparent, but doesn't by
-   itself give the torsion/elliptic generators a fundamental domain provides.
+1. **RECOMMENDED (B) — algebraic construction, decoupling the two jobs.** Correction (Eran):
+   Magma's `FuchsianGroup(O)` handles only **O¹** (norm-1 units) — not Oˣ, not the normalizer — so
+   it is not a drop-in (that's why `tablesX0DN.m` uses it only for the base signature and falls back
+   to Ogg for AL quotients). Options were: (A) finish the current scheme search (enforce *all*
+   integrality equations, handle p=2, dynamic ε-bound); (B) algebraic — AL involutions as generators
+   of the two-sided ideals of norm m ‖ DM, elliptic/torsion elements from optimal embeddings of
+   ℤ[ζₙ] (n∈{2,3,4,6}); (C) extend Fuchsian to the normalizer (most work).
+   **Claude's recommendation: (B).** Reasons: (i) **completeness** — (A)'s fixed ε-box (`Bound:=5`)
+   around CRT lifts has no guarantee the target element lies inside it, so it can *silently return
+   false* for larger discriminants (scope goes to 462); even a fully-debugged (A) is a bounded
+   heuristic, uncertifiable across 48 discriminants. (ii) **validation** — (B)'s output cross-checks
+   against formulas already in the repo (`SignatureX0DNmodAtkinLehnerElement`, Ogg83) and the
+   Eichler/Rotger class-number counts (Q3); (A) has no independent oracle. (iii) **less greenfield
+   than it looks** — the elliptic/torsion half reuses `Embed`/`UnitGroup` (already used 12×/21× in
+   the repo); the only new piece is AL involutions *as elements* (the repo has them only as
+   *signatures* today), a standard two-sided-ideal construction (Voight, *Quaternion Algebras*,
+   §28/§43) that also removes the AL-vs-elliptic conflation. **Honest caveat / hybrid:** (B) is more
+   upfront code and the AL-element construction needs care on Eichler orders — if D=6/10/15 are
+   needed immediately, patch (A) (p=2 + missing equations) to unblock small D now, but build (B) for
+   the discO ≤ 1000 production run. ⟐ Final route is Eran's, but the release should rest on (B).
 
 2. **Constraints the general code must preserve** (from `NormalizerToAutmuO` /
-   `NormalizerPlusGeneratorsEnhanced`): each generator normalizes O; positive reduced norm; AL
-   representatives have reduced norm exactly a Hall divisor m ‖ DN; the enhanced lift lands in the
-   norm-±1 part of the `(O/N)ˣ`-component (this is what makes G1plus = Aut ⋉ (O/N)¹ — see Q4); and
-   `kergen` (carrying `(1,−1)`) is appended so KG is generated correctly (see Q5).
+   `NormalizerPlusGeneratorsEnhanced`; Eran: "seem fine, revisit later"): each generator normalizes
+   O; positive reduced norm; AL representatives have reduced norm exactly a Hall divisor m ‖ DN; the
+   enhanced lift lands in the norm-±1 part of the `(O/N)ˣ`-component (this is what makes
+   G1plus = Aut ⋉ (O/N)¹ — see Q4); and `kergen` (carrying `(1,−1)`) is appended so KG is generated
+   correctly (see Q5).
 
 ---
 
