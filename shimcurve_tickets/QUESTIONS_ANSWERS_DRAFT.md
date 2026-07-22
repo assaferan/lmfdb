@@ -2,8 +2,8 @@
 
 > **STATUS: work-in-progress draft (updated 2026-07-21).** Co-developed by Eran + Claude, grounded in the
 > code. Not final and **not a substitute for `QUESTIONS.md`** (per BOARD, David answers there).
-> Items marked **DECIDED (Eran)** are Eran's calls already made; items marked **⟐ DECISION** are
-> still open. Q9/Q10/Q13 not yet worked through.
+> All 15 questions now have draft answers; items marked **DECIDED (Eran)** are settled, items marked
+> **⟐** are open sub-decisions (e.g. Q8 route, Q11 name-grammar votes, Q13 trace-depth tiering).
 
 Prepared for Eran's review before anything is copied into the real `QUESTIONS.md` on
 `roed-math/lmfdb@shimura_curves`. Everything below is grounded in the local code
@@ -361,9 +361,8 @@ not), their ν-columns should be re-checked once the base-order generalization l
    `num_known_degree1_noncm_points`, `cm_discriminants` are unset in both `enumerate-H.m`
    (:551,:568,:589-591,:595) and `tablesX0DN.m` (:181,:204-206,:216). The frontend can render them
    but has no data; the actual live branch is "Local obstructions … not known."
-   **⟐ DECISION — which theorems the first pass encodes.** The building blocks exist
-   (`RationalCMPointsX0DN`/`RationalCMQuotientsX0DN`, `OggCount…` in `X0DN_code.m`); what to wire
-   up is your call. My suggested first pass:
+   **DECIDED (Eran): v1 first pass WITHOUT Jordan–Livné.** The building blocks exist
+   (`RationalCMPointsX0DN`/`RationalCMQuotientsX0DN`, `OggCount…` in `X0DN_code.m`). v1 encodes:
    - **Shimura's D>1 theorem** → `pointless=true`, `0 ∈ obstructions` for every coarse X₀(D;N) and
      every X_H whose Aut-projection is trivial (the "covers X₀(D;N)" family — see (3));
    - the **AL-quotient exception** (X_H whose group contains Aut/AL elements of the right norm can
@@ -371,7 +370,7 @@ not), their ν-columns should be re-checked once the base-order generalization l
      pointless;
    - **CM-point lower bounds** from `RationalCMPointsX0DN`/`RationalCMQuotientsX0DN` →
      `cm_discriminants`, `num_known_degree1_*`.
-   Ogg/Jordan–Livné local criteria at p | D are a reasonable second pass.
+   Ogg/Jordan–Livné local criteria at p | D are **deferred past v1** (Eran).
 
 3. **"X_H covers coarse X₀(D;N)" holds exactly when the Aut-projection of H is trivial** (positive
    norm), i.e. test the image of H under `Aut_{±μ}(O) → N_{Bˣ}(O)/Qˣ` — not
@@ -384,20 +383,18 @@ not), their ν-columns should be re-checked once the base-order generalization l
 
 **Answer:**
 
-1. **Yes, import the Padurariu–Saia tables — and note the coarse pipeline already does.**
+1. **DECIDED (Eran): import the Padurariu–Saia tables** (Eran confirms they can be used).
    `GonalityBoundListX0DN` (`X0DN_code.m:1230`) already sets *exact* `q_gonality`/`qbar_gonality`
    for coarse X₀(D;N) from published tables (Ogg83, GY17, Rotger02, and **PS24 = Padurariu–Saia**
    for bielliptic N>1), wired through `tablesX0DN.m:219-223`. The real gap is the **enhanced X_H
    curves**, which get only crude `[1, 2(g−1)]` bounds and `q_gonality = qbar_gonality = \N`
-   (`enumerate-H.m:527-540,:598-601`). Importing/extending PS-style tables to general X_H is the
-   T17 work; ⟐ whether/when to do it depends on getting their tables (ask Oana & Freddy).
+   (`enumerate-H.m:527-540,:598-601`); extending PS-style tables to general X_H is the T17 work.
 
-2. **⌈(g+3)/2⌉ is safe** — it's the standard Brill–Noether ℚ̄-gonality upper bound for genus ≥ 2
-   (Poonen '07 App. A); the coarse code already uses `⌊(g+3)/2⌋` (`X0DN_code.m:1320`). Replacing
-   the enhanced curves' weak `2(g−1)` ℚ̄-upper bound with `⌊(g+3)/2⌋` is a legitimate, safe
-   improvement — that is what the "maybe (g+3)/2?" TODO is asking for. Also remember Shimura
-   curves have no real points, so ℚ-gonalities are even (already enforced for coarse at
-   `X0DN_code.m:1384-1386`; apply the same parity rounding to enhanced bounds).
+2. **DECIDED (Eran): the ⌈(g+3)/2⌉ + parity improvements are wanted for v1.** ⌈(g+3)/2⌉ is the
+   standard Brill–Noether ℚ̄-gonality upper bound for genus ≥ 2 (Poonen '07 App. A); the coarse code
+   already uses `⌊(g+3)/2⌋` (`X0DN_code.m:1320`). Replace the enhanced curves' weak `2(g−1)` ℚ̄-upper
+   bound with `⌊(g+3)/2⌋`, and apply the no-real-points even-parity rounding to the enhanced
+   ℚ-gonality bounds too (already done for coarse at `X0DN_code.m:1384-1386`). Both are cheap+safe.
 
 **Bug to flag (not in QUESTIONS but worth telling the authors):** `X0DN_code.m:1394` sets
 `gon_Qbar := gon_Q_low` (looks like it should be `gon_Qbar_low`), with a related unused typo
@@ -482,23 +479,47 @@ fixable). The enumerator is **structurally gerbiest-only** (`EnumerateGerbiestSu
    conductor `= Factorization(∏ level(f_i)^(mult_i·dim_i))` (`newform_decomp.m:56-57`), rank
    `= Σ rank(f_i)·mult_i` where the CMF `rank` field is the Galois-orbit analytic rank (:55).
 
-2. **`cmfdata.txt` is external, and there is no dump script in the repo.** Its format is fixed
-   (`helpers.m:65-75`): `label:level:cond:dim:rank:traces`, colon-separated, `traces` an
-   eval-able Magma list, records kept with `level | D·N²`. So T13 should write a dump from
-   `db.mf_newforms` selecting exactly **`label, level, conductor, dim, analytic_rank, traces`**
-   (colon-separated). **AL-signs are *not* needed** — trace-matching uses only Hecke traces at
-   primes coprime to DN. The one non-obvious required column is `rank = analytic_rank of the
-   Galois orbit`. ⟐ The enhanced path grows its prime cutoff adaptively
-   (`newform_decomp.m:64,74-102`), so the dump must supply *enough* a_p — decide a depth (e.g. all
-   p up to a generous bound).
+2. **cmfdata dump columns + trace depth.** `cmfdata.txt` is external, no dump script in the repo;
+   format fixed (`helpers.m:65-75`): `label:level:cond:dim:rank:traces`, `traces` an eval-able Magma
+   list, records kept with `level | levelbound` (default `D·N²`). T13 writes a dump from
+   `db.mf_newforms` selecting **`label, level, conductor, dim, analytic_rank, traces`**. **AL-signs
+   NOT needed**; the one non-obvious column is `rank = analytic_rank of the Galois orbit`.
 
-3. **Jacquet–Langlands space — correction to the question's framing.** The code uses only D and N
-   (no separate Eichler "M"). Coarse J₀^D(N): forms are **D-new** (`IsDNew`: p | M for all p | D),
-   trivial character, exact level M | **D·N** (`newform_decomp.m:36,44-45`). Enhanced X_H: candidate
-   space is level ≤ **D·N²**, conductor ≤ N, dim ≤ g, matched by traces (:66). So the "D·N·M-new of
-   level dividing D·N·M" description doesn't map onto the code as written — ⟐ if Eichler-level-M
-   curves (T22) are in scope, the JL space needs to be re-derived; for the current D·N pipeline the
-   cutoffs above are what the matching uses.
+   **Trace depth — the analysis Eran asked for.** How the matcher (`ShimuraNewformDecomposition`,
+   `newform_decomp.m:59-118`) actually consumes traces: candidate set `Z = {level ≤ D·N², cond ≤ N,
+   dim ≤ g}`; it builds `A = [[dim, a_{p₁}, a_{p₂}, …]]` over candidates, solves `A x = b` for the
+   multiplicity vector against the quaternionic trace `b` (`HTraces`), and **grows the prime set until
+   the solution is unique** (`Dimension(K)=0`). It accesses `r`traces[p]` **by prime value p**, so the
+   stored list must have length ≥ the largest prime used; if it runs out it returns **rank code −3
+   "cutoff reached"** (a detectable failure, not silent). So:
+   - **Binding requirement:** stored traces length `T ≥ Sturm(L_max)`, where `L_max` = the max
+     candidate level in scope and `Sturm(L) = ⌊(2/12)·[SL₂(ℤ):Γ₀(L)]⌋ = ⌊(1/6)·L·∏_{p|L}(1+1/p)⌋`
+     (weight 2). Two distinct newforms of level ≤ L differ at some a_p with p ≤ Sturm(L), so up to
+     Sturm(L_max) the candidate rows are linearly independent and the multiplicities are pinned down.
+   - **Numbers for the scope** (with the M-aware bound from (3), `L_max = discO·N² ≤ 1000·36 = 36000`):
+     `Sturm(36000) ≈ (1/6)·36000·2.4 ≈ 14400` → store **a_n up to n ≈ 14400** (≈ first 1700 primes).
+     But that worst case is `discO=1000, N=6`; the vast majority (esp. N=1, `L_max = discO ≤ 1000`)
+     need only `Sturm(≤1000) ≈ 300` (a_n to ~300). **Recommendation: tier the depth per newform** —
+     store a_n up to `Sturm(ℓ·N_max²)` for a form of level ℓ (cheap for small ℓ), capped at
+     Sturm(36000).
+   - **Safety net:** exploit the existing `−3` return — T14 treats "cutoff reached" as *regenerate
+     extended traces for that curve's candidates and retry*, so a too-short dump self-heals instead
+     of producing wrong data. Concretely: dump the tiered depth above, and wire `−3 → extend+retry`.
+   - **⟐ Caveat to verify:** LMFDB's default `mf_newforms.traces` column length may be shorter than
+     14400 (I couldn't reach the devmirror to confirm); if so the dump must pull/compute **extended**
+     a_p (e.g. via `mf_hecke_nf`) for the largest-level forms, not just read the default column.
+
+3. **Jacquet–Langlands space — DECIDED (Eran): make it M-aware.** History (Eran): the original plan
+   was maximal orders (disc D) + congruence level N, hoping to get Eichler-order-M curves as
+   level-M *subgroups* — but that's inefficient, so the scope now **includes Eichler orders of level
+   M directly** (disc `discO = D·M`; Q12.1). Therefore the JL space **must be M-aware**, and the
+   current D,N-only code is wrong for the Eichler rows. Concretely T13 must change:
+   `AmbientLevel := D*N` → **`discO*N` (= D·M·N)** (`newform_decomp.m:36`), and the candidate filter
+   `level ≤ D*N²` → **`level ≤ discO*N²`** (`:66`, and `CMFLoad` `levelbound`, `helpers.m:68`). The
+   **D-newness stays keyed to D** (`IsDNew(D,·)` — new at the ramified primes; forms may be old at
+   p | M and p | N), which matches the classical JL statement that Jac(X₀^D(M)) ↔ the D-new subspace
+   of level D·M. ⟐ Worth a cross-check that HTraces on the Eichler side already uses the level-M order
+   (it takes `H` and `N`, so confirm the order passed in carries level M).
 
 ---
 
