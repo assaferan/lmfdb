@@ -528,3 +528,18 @@ class SmfTest(LmfdbTest):
             "S_{14,2}(\\Gamma_0(2))",
             "Cusp forms 16 0 16",
         ])
+
+    def test_multiplicity_and_conjectural_dims(self):
+        """
+        A form of multiplicity > 1 gets a Mult column, and a conjectural
+        dimension a starred knowl; NULL means multiplicity 1 and proved
+        """
+        from lmfdb.siegel_modular_forms.web_space import display_dim
+        from lmfdb.siegel_modular_forms.siegel_modular_form import show_mult_col
+        assert display_dim(24) == r'\(24\)'
+        assert display_dim(24, None) == r'\(24\)'
+        with self.app.test_request_context():
+            starred = display_dim(24, False)
+        assert starred.startswith(r'\(24\)') and r'\(^*\)' in starred
+        assert not show_mult_col({'results': [{'multiplicity': None}, {'multiplicity': 1}, {}]})
+        assert show_mult_col({'results': [{'multiplicity': 1}, {'multiplicity': 5}]})
